@@ -215,14 +215,18 @@ A typical loop:
 
 ## Releasing (maintainers)
 
-Publishing is automated by `.github/workflows/publish.yml` on a published
-GitHub Release. The repo needs an `NPM_TOKEN` secret with publish rights.
+Publishing is automated by `.github/workflows/publish.yml`: **every push to
+`main` runs it, and it publishes only when `package.json`'s version isn't
+already on npm** (so it publishes exactly when you bump the version, and does
+nothing otherwise). The repo needs an `NPM_TOKEN` secret with publish rights
+(GitHub → Settings → Secrets and variables → Actions → `NPM_TOKEN`).
 
 ```bash
-npm version patch        # bump version + create the vX.Y.Z tag
-git push --follow-tags
-# Create a GitHub Release for the new tag -> CI runs `npm publish`.
+npm version patch        # bump version (+ vX.Y.Z tag)
+git push --follow-tags   # push to main -> CI detects the new version and publishes
 ```
+
+You can also trigger it manually from the Actions tab (`workflow_dispatch`).
 
 ---
 

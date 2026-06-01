@@ -1,11 +1,12 @@
 name: Publish to npm
 
-# Publishes the version currently in package.json when a GitHub Release is
-# published. Bump the version, tag vX.Y.Z, push, then create the Release.
-# (No build step: the published files are plain .mjs, so no install is needed.)
+# Publishes to npm on every push to main, but ONLY when package.json's version
+# isn't already on the registry — so it publishes exactly when you bump the
+# version, and is a no-op for pushes that don't. Also runnable manually.
+# (No build step: the published files are plain .mjs.)
 on:
-  release:
-    types: [published]
+  push:
+    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -21,7 +22,21 @@ jobs:
           node-version: 20
           registry-url: https://registry.npmjs.org
 
+      - name: Check whether this version is already published
+        id: check
+        run: |
+          NAME=$(node -p "require('./package.json').name")
+          VERSION=$(node -p "require('./package.json').version")
+          echo "Resolved $NAME@$VERSION"
+          if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
+            echo "$NAME@$VERSION is already on npm — skipping publish."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Publish
+        if: steps.check.outputs.publish == 'true'
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
