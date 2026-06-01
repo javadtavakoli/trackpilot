@@ -17,32 +17,43 @@ local repository. Two primary jobs:
 
 ## Constraints & decisions
 
-- **Runtime:** Node 20+, ESM, **zero runtime dependencies** (uses built-in
-  `fetch`). Keeps install trivial and audit surface tiny.
-- **Distribution:** Lives in its own git repo at `~/Projects/youtrack-cli`.
-  Installed globally via `yarn link` (Yarn 1.22), exposing a `youtrack` binary
-  on PATH. Usable from any repo.
+- **Runtime:** Node 20+, ESM. Uses built-in `fetch`. **One runtime dependency:**
+  `@napi-rs/keyring` for cross-OS secret storage (ships prebuilt native binaries
+  for macOS/Windows/Linux, so no compiler needed). Everything else is stdlib.
+- **Distribution:** Public git repo **and published to npm**, intended for use
+  by other people. Primary install for end users:
+  `npm i -g <package-name>` (or `yarn global add <package-name>`), exposing a
+  `youtrack` binary on PATH, usable from any repo. Local dev install:
+  `git clone … && yarn install && yarn link`. MIT-licensed.
+- **Package name:** to be confirmed against npm availability — preferred
+  `youtrack-cli`; if taken, a scoped name `@<npm-user>/youtrack-cli`. The binary
+  is `youtrack` regardless.
 - **Hosting target:** YouTrack Cloud (`https://<instance>.youtrack.cloud`).
 - **Output:** **JSON by default** on stdout — precise for machine parsing.
   Errors print `{ "error": "..." }` and exit non-zero.
 
 ## Configuration & auth
 
-**The token lives in the CLI's own private config dir, never in any repo.** It
-is a YouTrack **permanent token** (`perm:...`, created in YouTrack → Profile →
-Account Security → Authentication).
+**The token is stored in the OS keyring**, encrypted at rest by the platform —
+macOS Keychain, Windows Credential Manager, or Linux Secret Service (libsecret),
+via `@napi-rs/keyring`. It is a YouTrack **permanent token** (`perm:...`, created
+in YouTrack → Profile → Account Security → Authentication).
 
+- **Keyring entry:** service `youtrack-cli`, account `default`.
 - **Token resolution order:**
-  1. `YOUTRACK_TOKEN` environment variable (override, e.g. for CI).
-  2. `~/.config/youtrack-cli/token` — a plaintext file holding only the token,
-     created with mode `0600` (owner read/write only).
-  If neither is present, every command needing auth fails fast with a clear
-  message telling the user to run `youtrack config set-token` or export the
-  env var.
+  1. `YOUTRACK_TOKEN` environment variable (override, e.g. for CI where no
+     keyring exists).
+  2. OS keyring entry.
+  If neither yields a token, every command needing auth fails fast with a clear
+  message telling the user to run `youtrack config set-token` (or export the env
+  var).
 - **Writing the token:** `youtrack config set-token` reads the token from stdin
-  (so it never lands in shell history) and writes `~/.config/youtrack-cli/token`
-  with mode `0600`, creating the dir with mode `0700`. The token is **never**
-  echoed back, and lives outside any git repo by design.
+  (so it never lands in shell history) and stores it in the keyring. The token
+  is **never** echoed back. `youtrack config delete-token` removes it.
+- **Keyring-unavailable fallback:** if the platform keyring can't be reached
+  (e.g. a headless Linux box with no Secret Service running), `set-token` fails
+  with a clear message pointing the user at the `YOUTRACK_TOKEN` env var instead,
+  so the tool stays usable in CI/headless contexts.
 - **baseUrl (non-secret):** `https://<instance>.youtrack.cloud`. Resolved in
   priority order: `YOUTRACK_BASE_URL` env var → `~/.config/youtrack-cli/config.json`.
   `config set --base-url ...` writes only this non-secret value.
@@ -53,7 +64,8 @@ Account Security → Authentication).
 | Command | Behavior |
 |---|---|
 | `config set --base-url <url>` | Write the non-secret baseUrl to config. |
-| `config set-token` | Read token from stdin, write `~/.config/youtrack-cli/token` mode 0600. |
+| `config set-token` | Read token from stdin, store in OS keyring. |
+| `config delete-token` | Remove the token from the OS keyring. |
 | `config get` | Print resolved baseUrl + whether a token is available (token value never printed). |
 | `projects` | List projects with `{ id, shortName, name }`. |
 | `read <id>` | Fetch one issue: id, summary, description, state, type, assignee, comments, URL. |
@@ -84,10 +96,12 @@ Account Security → Authentication).
 
 ```
 youtrack-cli/
-  package.json          # "type": "module", "bin": { "youtrack": "./bin/youtrack.mjs" }
+  package.json          # name, version, "type": "module", bin, files, engines>=20, deps, repo, license
+  LICENSE               # MIT
   bin/youtrack.mjs      # entry: parse argv, dispatch to command, format output/errors
   src/
-    config.mjs          # load/save baseUrl (config.json); resolve+write token (env or 0600 file)
+    config.mjs          # baseUrl (config.json); token resolve via env → keyring
+    keyring.mjs         # thin wrapper over @napi-rs/keyring (get/set/delete, availability check)
     api.mjs             # fetch wrapper: auth header, baseUrl+/api, fields=, error mapping
     args.mjs            # tiny flag parser (--key value, positional)
     git.mjs             # run git log, extract issue tokens
@@ -100,9 +114,10 @@ youtrack-cli/
       update.mjs
       comment.mjs
       release.mjs
+  .github/workflows/publish.yml   # publish to npm on GitHub Release / tag
   docs/superpowers/specs/2026-06-01-youtrack-cli-design.md
-  README.md             # install + secure token setup + usage
-  .gitignore            # node_modules, *.env, token.env
+  README.md             # install (npm + dev), token setup, every command with examples
+  .gitignore            # node_modules
 ```
 
 Each command is an isolated unit: receives parsed args + an `api` instance,
@@ -125,9 +140,22 @@ is the only place that knows YouTrack REST shapes.
   — more reliable than raw custom-field writes.
 - **Comment:** `POST /api/issues/{id}/comments` with `{ text }`.
 
+## Publishing & CI
+
+- **`.github/workflows/publish.yml`** — triggers on GitHub Release published (and
+  on `v*` tags). Steps: checkout → `actions/setup-node@v4` with
+  `registry-url: https://registry.npmjs.org` and Node 20 → `yarn install
+  --frozen-lockfile` → `npm publish --access public`, authenticated via
+  `NODE_AUTH_TOKEN` from the repo secret `NPM_TOKEN`.
+- The workflow does **not** bump the version; the published version is whatever
+  is in `package.json` at the tagged commit. Release flow: bump version → commit
+  → tag `vX.Y.Z` → push → create GitHub Release → CI publishes.
+- `package.json` `files` whitelist (`bin`, `src`, `README.md`, `LICENSE`) keeps
+  the published tarball minimal; `engines.node >= 20`.
+
 ## Error handling
 
-- No token available (env var unset and token file missing) → `{ "error": "no token: run `youtrack config set-token` or export YOUTRACK_TOKEN" }`, exit 1.
+- No token available (env var unset and keyring empty) → `{ "error": "no token: run `youtrack config set-token` or export YOUTRACK_TOKEN" }`, exit 1.
 - Missing baseUrl → `{ "error": "no baseUrl: run `youtrack config set --base-url ...`" }`, exit 1.
 - HTTP non-2xx → surface status + YouTrack error body in `{ "error": ... }`, exit 1.
 - `release` outside a git repo → clear error, exit 1.
@@ -135,7 +163,6 @@ is the only place that knows YouTrack REST shapes.
 ## Out of scope (YAGNI)
 
 - Multiple YouTrack instances / profiles (single config only).
-- Storing the token in the OS keychain or encrypting it at rest (0600 file only).
 - Interactive prompts / TUI.
 - Caching, offline mode, attachments, work items/time tracking.
 - Publishing to npm (local `yarn link` only for now).
