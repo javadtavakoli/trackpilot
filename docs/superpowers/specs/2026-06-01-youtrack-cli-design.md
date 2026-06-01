@@ -1,16 +1,17 @@
-# youtrack-cli — Design Spec
+# trackpilot — Design Spec
 
 **Date:** 2026-06-01
 **Status:** Approved (pre-implementation)
 
 ## Purpose
 
-A small, reusable command-line tool for working with **YouTrack Cloud** from any
-local repository. Two primary jobs:
+`trackpilot` is a small, reusable command-line tool for driving **YouTrack
+Cloud** from any local repository — built so an AI assistant (or a human) can
+turn specs into tracked issues and prep releases. Two primary jobs:
 
 1. **Authoring & managing issues** — read issue specs, create tasks, update
-   fields, comment, and search — so Claude (and the user) can turn specs into
-   YouTrack tasks programmatically.
+   fields, comment, and search — turning specs into YouTrack tasks
+   programmatically.
 2. **Release diffs for QA** — compare two git branches (default `main..next`),
    extract YouTrack issue IDs referenced in the commits, and print a QA-ready
    list of the issues going out in a release.
@@ -22,12 +23,11 @@ local repository. Two primary jobs:
   for macOS/Windows/Linux, so no compiler needed). Everything else is stdlib.
 - **Distribution:** Public git repo **and published to npm**, intended for use
   by other people. Primary install for end users:
-  `npm i -g <package-name>` (or `yarn global add <package-name>`), exposing a
-  `youtrack` binary on PATH, usable from any repo. Local dev install:
+  `npm i -g trackpilot` (or `yarn global add trackpilot`), exposing a
+  `trackpilot` binary on PATH, usable from any repo. Local dev install:
   `git clone … && yarn install && yarn link`. MIT-licensed.
-- **Package name:** to be confirmed against npm availability — preferred
-  `youtrack-cli`; if taken, a scoped name `@<npm-user>/youtrack-cli`. The binary
-  is `youtrack` regardless.
+- **Package name:** `trackpilot` (confirmed available on npm). Binary:
+  `trackpilot`.
 - **Hosting target:** YouTrack Cloud (`https://<instance>.youtrack.cloud`).
 - **Output:** **JSON by default** on stdout — precise for machine parsing.
   Errors print `{ "error": "..." }` and exit non-zero.
@@ -39,23 +39,23 @@ macOS Keychain, Windows Credential Manager, or Linux Secret Service (libsecret),
 via `@napi-rs/keyring`. It is a YouTrack **permanent token** (`perm:...`, created
 in YouTrack → Profile → Account Security → Authentication).
 
-- **Keyring entry:** service `youtrack-cli`, account `default`.
+- **Keyring entry:** service `trackpilot`, account `default`.
 - **Token resolution order:**
   1. `YOUTRACK_TOKEN` environment variable (override, e.g. for CI where no
      keyring exists).
   2. OS keyring entry.
   If neither yields a token, every command needing auth fails fast with a clear
-  message telling the user to run `youtrack config set-token` (or export the env
-  var).
-- **Writing the token:** `youtrack config set-token` reads the token from stdin
-  (so it never lands in shell history) and stores it in the keyring. The token
-  is **never** echoed back. `youtrack config delete-token` removes it.
+  message telling the user to run `trackpilot config set-token` (or export the
+  env var).
+- **Writing the token:** `trackpilot config set-token` reads the token from
+  stdin (so it never lands in shell history) and stores it in the keyring. The
+  token is **never** echoed back. `trackpilot config delete-token` removes it.
 - **Keyring-unavailable fallback:** if the platform keyring can't be reached
   (e.g. a headless Linux box with no Secret Service running), `set-token` fails
   with a clear message pointing the user at the `YOUTRACK_TOKEN` env var instead,
   so the tool stays usable in CI/headless contexts.
 - **baseUrl (non-secret):** `https://<instance>.youtrack.cloud`. Resolved in
-  priority order: `YOUTRACK_BASE_URL` env var → `~/.config/youtrack-cli/config.json`.
+  priority order: `YOUTRACK_BASE_URL` env var → `~/.config/trackpilot/config.json`.
   `config set --base-url ...` writes only this non-secret value.
 - Auth header on every request: `Authorization: Bearer <token>`.
 
@@ -74,6 +74,9 @@ in YouTrack → Profile → Account Security → Authentication).
 | `update <id> [--summary "..."] [--description "..."] [--state "..."]` | Edit fields and/or change state. |
 | `comment <id> --text "..."` | Add a comment. |
 | `release [--base <branch>] [--head <branch>]` | Release diff for QA (see below). Defaults `--base main --head next`. |
+
+All commands accept `--base-url <url>` to override the configured instance for a
+single invocation.
 
 ## `release` command — detailed flow
 
@@ -95,10 +98,10 @@ in YouTrack → Profile → Account Security → Authentication).
 ## Module structure
 
 ```
-youtrack-cli/
+trackpilot/
   package.json          # name, version, "type": "module", bin, files, engines>=20, deps, repo, license
   LICENSE               # MIT
-  bin/youtrack.mjs      # entry: parse argv, dispatch to command, format output/errors
+  bin/trackpilot.mjs    # entry: parse argv, dispatch to command, format output/errors
   src/
     config.mjs          # baseUrl (config.json); token resolve via env → keyring
     keyring.mjs         # thin wrapper over @napi-rs/keyring (get/set/delete, availability check)
@@ -142,8 +145,8 @@ is the only place that knows YouTrack REST shapes.
 
 ## Publishing & CI
 
-- **`.github/workflows/publish.yml`** — triggers on GitHub Release published (and
-  on `v*` tags). Steps: checkout → `actions/setup-node@v4` with
+- **`.github/workflows/publish.yml`** — triggers on GitHub Release published.
+  Steps: checkout → `actions/setup-node@v4` with
   `registry-url: https://registry.npmjs.org` and Node 20 → `yarn install
   --frozen-lockfile` → `npm publish --access public`, authenticated via
   `NODE_AUTH_TOKEN` from the repo secret `NPM_TOKEN`.
@@ -155,8 +158,8 @@ is the only place that knows YouTrack REST shapes.
 
 ## Error handling
 
-- No token available (env var unset and keyring empty) → `{ "error": "no token: run `youtrack config set-token` or export YOUTRACK_TOKEN" }`, exit 1.
-- Missing baseUrl → `{ "error": "no baseUrl: run `youtrack config set --base-url ...`" }`, exit 1.
+- No token available (env var unset and keyring empty) → `{ "error": "no token: run `trackpilot config set-token` or export YOUTRACK_TOKEN" }`, exit 1.
+- Missing baseUrl → `{ "error": "no baseUrl: run `trackpilot config set --base-url ...`" }`, exit 1.
 - HTTP non-2xx → surface status + YouTrack error body in `{ "error": ... }`, exit 1.
 - `release` outside a git repo → clear error, exit 1.
 
@@ -165,4 +168,3 @@ is the only place that knows YouTrack REST shapes.
 - Multiple YouTrack instances / profiles (single config only).
 - Interactive prompts / TUI.
 - Caching, offline mode, attachments, work items/time tracking.
-- Publishing to npm (local `yarn link` only for now).

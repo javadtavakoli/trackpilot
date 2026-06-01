@@ -1,0 +1,42 @@
+{
+  "name": "trackpilot",
+  "version": "0.1.0",
+  "description": "AI-friendly command-line copilot for driving YouTrack Cloud against a git repo: read specs, create and update issues, and generate release diffs for QA.",
+  "type": "module",
+  "bin": "bin/trackpilot.mjs",
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "trackpilot": "node bin/trackpilot.mjs"
+  },
+  "dependencies": {
+    "@napi-rs/keyring": "^1.3.0"
+  },
+  "keywords": [
+    "youtrack",
+    "cli",
+    "issues",
+    "ai",
+    "agent",
+    "release",
+    "qa",
+    "git"
+  ],
+  "license": "MIT",
+  "author": "javadtavakoli",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/javadtavakoli/trackpilot.git"
+  },
+  "bugs": {
+    "url": "https://github.com/javadtavakoli/trackpilot/issues"
+  },
+  "homepage": "https://github.com/javadtavakoli/trackpilot#readme"
+}
