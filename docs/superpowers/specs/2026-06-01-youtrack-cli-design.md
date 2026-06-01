@@ -28,37 +28,33 @@ local repository. Two primary jobs:
 
 ## Configuration & auth
 
-**The token is never written to disk by the tool.** It is read only from the
-environment.
+**The token lives in the CLI's own private config dir, never in any repo.** It
+is a YouTrack **permanent token** (`perm:...`, created in YouTrack → Profile →
+Account Security → Authentication).
 
-- **Token:** read exclusively from the `YOUTRACK_TOKEN` environment variable
-  (a YouTrack **permanent token**, `perm:...`, created in YouTrack → Profile →
-  Account Security → Authentication). If `YOUTRACK_TOKEN` is unset, every
-  command that needs auth fails fast with a clear message telling the user to
-  export it. The tool has no `--token` flag and no token persistence.
+- **Token resolution order:**
+  1. `YOUTRACK_TOKEN` environment variable (override, e.g. for CI).
+  2. `~/.config/youtrack-cli/token` — a plaintext file holding only the token,
+     created with mode `0600` (owner read/write only).
+  If neither is present, every command needing auth fails fast with a clear
+  message telling the user to run `youtrack config set-token` or export the
+  env var.
+- **Writing the token:** `youtrack config set-token` reads the token from stdin
+  (so it never lands in shell history) and writes `~/.config/youtrack-cli/token`
+  with mode `0600`, creating the dir with mode `0700`. The token is **never**
+  echoed back, and lives outside any git repo by design.
 - **baseUrl (non-secret):** `https://<instance>.youtrack.cloud`. Resolved in
   priority order: `YOUTRACK_BASE_URL` env var → `~/.config/youtrack-cli/config.json`.
   `config set --base-url ...` writes only this non-secret value.
-- Auth header on every request: `Authorization: Bearer $YOUTRACK_TOKEN`.
-
-**Recommended user setup (documented in README):** keep the export in a
-gitignored secrets file the shell sources, e.g.
-
-```sh
-# ~/.config/youtrack-cli/token.env   (chmod 600, NOT committed)
-export YOUTRACK_TOKEN="perm:xxxxxxxx"
-```
-
-then `source` it from `~/.zshrc` (or use direnv per-repo). The tool itself does
-not read this file — it only consumes the resulting env var, so the secret’s
-lifetime and storage stay entirely under the user’s control.
+- Auth header on every request: `Authorization: Bearer <token>`.
 
 ## Commands
 
 | Command | Behavior |
 |---|---|
 | `config set --base-url <url>` | Write the non-secret baseUrl to config. |
-| `config get` | Print resolved baseUrl + whether `YOUTRACK_TOKEN` is set (token value never printed). |
+| `config set-token` | Read token from stdin, write `~/.config/youtrack-cli/token` mode 0600. |
+| `config get` | Print resolved baseUrl + whether a token is available (token value never printed). |
 | `projects` | List projects with `{ id, shortName, name }`. |
 | `read <id>` | Fetch one issue: id, summary, description, state, type, assignee, comments, URL. |
 | `list --query "<yt-query>" [--limit N]` | Search via YouTrack query syntax (default limit 50). |
@@ -91,7 +87,7 @@ youtrack-cli/
   package.json          # "type": "module", "bin": { "youtrack": "./bin/youtrack.mjs" }
   bin/youtrack.mjs      # entry: parse argv, dispatch to command, format output/errors
   src/
-    config.mjs          # load/save baseUrl (config.json); resolve token from env only
+    config.mjs          # load/save baseUrl (config.json); resolve+write token (env or 0600 file)
     api.mjs             # fetch wrapper: auth header, baseUrl+/api, fields=, error mapping
     args.mjs            # tiny flag parser (--key value, positional)
     git.mjs             # run git log, extract issue tokens
@@ -131,7 +127,7 @@ is the only place that knows YouTrack REST shapes.
 
 ## Error handling
 
-- `YOUTRACK_TOKEN` unset → `{ "error": "YOUTRACK_TOKEN is not set; export your YouTrack permanent token" }`, exit 1.
+- No token available (env var unset and token file missing) → `{ "error": "no token: run `youtrack config set-token` or export YOUTRACK_TOKEN" }`, exit 1.
 - Missing baseUrl → `{ "error": "no baseUrl: run `youtrack config set --base-url ...`" }`, exit 1.
 - HTTP non-2xx → surface status + YouTrack error body in `{ "error": ... }`, exit 1.
 - `release` outside a git repo → clear error, exit 1.
@@ -139,7 +135,7 @@ is the only place that knows YouTrack REST shapes.
 ## Out of scope (YAGNI)
 
 - Multiple YouTrack instances / profiles (single config only).
-- Storing the token anywhere (env var only, by design).
+- Storing the token in the OS keychain or encrypting it at rest (0600 file only).
 - Interactive prompts / TUI.
 - Caching, offline mode, attachments, work items/time tracking.
 - Publishing to npm (local `yarn link` only for now).
