@@ -122,18 +122,23 @@ trackpilot list --query "project: ABC State: Open" --limit 20
 trackpilot list --query "for: me #Unresolved"
 ```
 
-### `create --project <KEY> --summary "..." [--description "..."] [--type <Type>]`
+### `create --project <KEY> --summary "..." [--description "..."] [--type <Type>] [--field "Name=Value" ...]`
 
 Create a task. `--project` is the project **key** (short name) from
-`trackpilot projects`.
+`trackpilot projects`. Use `--field "Name=Value"` (repeatable) to set
+single-value enum custom fields **at creation time** — needed when a project
+makes a field mandatory.
 
 ```bash
 trackpilot create \
   --project ABC \
   --summary "Fix login redirect loop" \
   --description "Steps to reproduce ..." \
-  --type Bug
+  --type Bug \
+  --field "Squad=Squad 2"
 ```
+
+For multi-value fields, or fields set after creation, use `command` (below).
 
 ### `update <id> [--summary ...] [--description ...] [--state ...]`
 
@@ -148,6 +153,17 @@ trackpilot update ABC-123 --summary "Clearer title" --description "Updated body"
 
 ```bash
 trackpilot comment ABC-123 --text "Deployed to staging, ready for QA."
+```
+
+### `command <id> --query "<yt-command>"`
+
+Apply an arbitrary [YouTrack command](https://www.jetbrains.com/help/youtrack/cloud/commands.html)
+to an issue — the escape hatch for any field `create`/`update` don't cover
+(multi-value fields, assignee, tags, etc.).
+
+```bash
+trackpilot command ABC-123 --query "Team Front-End"
+trackpilot command ABC-123 --query "State Fixed tag release-blocker"
 ```
 
 ### `release [--base main] [--head next]`

@@ -33,7 +33,12 @@ export function parseArgs(argv, { booleans = [] } = {}) {
           i++;
         }
       }
-      options[key] = value;
+      // Repeated flags accumulate into an array (e.g. multiple --field).
+      if (key in options) {
+        options[key] = Array.isArray(options[key]) ? [...options[key], value] : [options[key], value];
+      } else {
+        options[key] = value;
+      }
     } else {
       positionals.push(token);
     }

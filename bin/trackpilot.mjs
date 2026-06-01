@@ -14,6 +14,7 @@ import { run as list } from '../src/commands/list.mjs';
 import { run as create } from '../src/commands/create.mjs';
 import { run as update } from '../src/commands/update.mjs';
 import { run as comment } from '../src/commands/comment.mjs';
+import { run as command } from '../src/commands/command.mjs';
 import { run as release } from '../src/commands/release.mjs';
 
 const BOOLEAN_FLAGS = ['help'];
@@ -27,6 +28,7 @@ const COMMANDS = {
   create: { handler: create, needsApi: true },
   update: { handler: update, needsApi: true },
   comment: { handler: comment, needsApi: true },
+  command: { handler: command, needsApi: true },
   release: { handler: release, needsApi: true },
 };
 
@@ -42,9 +44,10 @@ Commands:
   projects                             List projects and their keys
   read <id>                            Read one issue (with comments)
   list --query "<q>" [--limit N]       Search issues (YouTrack query syntax)
-  create --project <KEY> --summary "..." [--description "..."] [--type <Type>]
+  create --project <KEY> --summary "..." [--description "..."] [--type <Type>] [--field "Name=Value" ...]
   update <id> [--summary ...] [--description ...] [--state ...]
   comment <id> --text "..."            Add a comment
+  command <id> --query "..."           Apply a YouTrack command (e.g. "State Fixed")
   release [--base main] [--head next]  Release diff: issues for QA from git history
 
 Global:

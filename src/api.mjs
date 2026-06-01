@@ -150,14 +150,22 @@ export function createApi({ baseUrl, token }) {
       return (data || []).map(shapeIssue);
     },
 
-    async createIssue({ project, summary, description, type }) {
+    // `fields` is an array of { name, value } for single-value enum custom
+    // fields that must be set at creation time (e.g. a required "RC Squad").
+    async createIssue({ project, summary, description, type, fields = [] }) {
       const projectId = await this.resolveProjectId(project);
+      const customFields = fields.map(({ name, value }) => ({
+        name,
+        $type: 'SingleEnumIssueCustomField',
+        value: { name: value },
+      }));
       const created = await request('POST', '/issues', {
         query: { fields: 'idReadable' },
         body: {
           project: { id: projectId },
           summary,
           ...(description ? { description } : {}),
+          ...(customFields.length ? { customFields } : {}),
         },
       });
       const id = created.idReadable;
