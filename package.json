@@ -4,6 +4,12 @@
   "description": "AI-friendly command-line copilot for driving YouTrack Cloud against a git repo: read specs, create and update issues, and generate release diffs for QA.",
   "type": "module",
   "bin": "bin/trackpilot.mjs",
+  "exports": {
+    ".": {
+      "types": "./src/api.d.ts",
+      "import": "./src/api.mjs"
+    }
+  },
   "files": [
     "bin",
     "src",
