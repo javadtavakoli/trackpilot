@@ -1,0 +1,99 @@
+import { AppError } from './api.mjs';
+import { resolveValue } from './resolve.mjs';
+import { buildCommands } from './build-commands.mjs';
+
+const ENUM_TYPES = new Set([
+  'SingleEnumIssueCustomField',
+  'MultiEnumIssueCustomField',
+  'SingleBuildIssueCustomField',
+  'SingleVersionIssueCustomField',
+  'MultiVersionIssueCustomField',
+]);
+
+// Throws if any parsed command errored, or if a tag would be newly created
+// (YouTrack reports that as "Add new tag X" with error:false).
+export function assertAssistClean(results) {
+  for (const c of results) {
+    if (c.error) throw new AppError(`YouTrack rejected: ${c.description}`);
+    if (/add new tag/i.test(c.description || '')) {
+      throw new AppError(`refusing to create a new tag: ${c.description}`);
+    }
+  }
+}
+
+// Pure: resolve raw inputs to canonical values using the provided lookup data.
+// Throws AppError (with suggestions) on any miss.
+export function resolveInputs({ raw = {}, schema = [], users = [], tags = [] }) {
+  const out = {
+    assignee: undefined,
+    fields: [],
+    tags: [],
+    relates: raw.relates || [],
+    dependsOn: raw.dependsOn || [],
+    subtaskOf: raw.subtaskOf || [],
+  };
+
+  if (raw.assignee) {
+    const opts = users.map((u) => ({ value: u.login, keys: [u.login, u.name, u.fullName].filter(Boolean) }));
+    const r = resolveValue(raw.assignee, opts);
+    if (!r.match) throw new AppError(`unknown user "${raw.assignee}". Did you mean: ${r.suggestions.join(', ')}?`);
+    out.assignee = r.match;
+  }
+
+  for (const f of raw.fields || []) {
+    const field = schema.find((s) => s.name.toLowerCase() === f.name.toLowerCase());
+    if (!field) {
+      const names = schema.map((s) => s.name).join(', ');
+      throw new AppError(`unknown field "${f.name}". Valid fields: ${names}`);
+    }
+    if (ENUM_TYPES.has(field.type) && field.values.length) {
+      const r = resolveValue(f.value, field.values.map((v) => ({ value: v, keys: [v] })));
+      if (!r.match) {
+        throw new AppError(`"${f.value}" is not valid for ${field.name}. Valid: ${field.values.join(', ')}`);
+      }
+      out.fields.push({ name: field.name, value: r.match });
+    } else {
+      // period / text / user-typed fields pass through (assist validates format)
+      out.fields.push({ name: field.name, value: f.value });
+    }
+  }
+
+  for (const t of raw.tags || []) {
+    const r = resolveValue(t, tags.map((name) => ({ value: name, keys: [name] })));
+    if (!r.match) throw new AppError(`unknown tag "${t}". Did you mean: ${r.suggestions.join(', ')}?`);
+    out.tags.push(r.match);
+  }
+
+  return out;
+}
+
+// Phase 1 (no issue id needed): fetch lookups, resolve/validate, build commands.
+// Throws AppError (with suggestions) on any bad value BEFORE anything is written.
+export async function prepareCommands(api, raw, projectKey) {
+  const needSchema = raw.fields && raw.fields.length;
+  const needUsers = !!raw.assignee;
+  const needTags = raw.tags && raw.tags.length;
+  if (!needSchema && !needUsers && !needTags &&
+      !(raw.relates && raw.relates.length) &&
+      !(raw.dependsOn && raw.dependsOn.length) &&
+      !(raw.subtaskOf && raw.subtaskOf.length)) {
+    return [];
+  }
+
+  const [schema, users, tags] = await Promise.all([
+    needSchema ? api.projectSchema(projectKey) : Promise.resolve([]),
+    needUsers ? api.users() : Promise.resolve([]),
+    needTags ? api.tags() : Promise.resolve([]),
+  ]);
+
+  const resolved = resolveInputs({ raw, schema, users, tags });
+  return buildCommands(resolved);
+}
+
+// Phase 2 (needs the issue id): dry-run via assist, then apply grouped commands.
+export async function applyPrepared(api, id, commands) {
+  if (!commands || !commands.length) return;
+  const assistResults = await api.assist(id, commands.map((c) => c.command).join(' '));
+  assertAssistClean(assistResults);
+  await api.applyCommands(id, commands);
+}
