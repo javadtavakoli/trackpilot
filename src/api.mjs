@@ -29,7 +29,7 @@ export function shapeLinks(links) {
   const out = [];
   for (const link of links || []) {
     for (const issue of link.issues || []) {
-      out.push({ type: link.linkType?.name ?? null, direction: link.direction ?? null, id: issue.idReadable });
+      out.push({ type: link.linkType?.name ?? null, direction: link.direction ?? null, id: issue.idReadable ?? null });
     }
   }
   return out;
