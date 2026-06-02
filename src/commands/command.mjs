@@ -1,6 +1,6 @@
 // trackpilot command <id> --query "<yt-command>"
 // Apply an arbitrary YouTrack command to an issue (e.g. "State Fixed",
-// "Assignee me", "RC Squad Squad 2"). Useful for fields the typed commands
+// "Assignee me", "Squad Squad 2"). Useful for fields the typed commands
 // (create/update) don't cover.
 
 import { AppError } from '../api.mjs';

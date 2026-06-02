@@ -44,7 +44,9 @@ You need two things: your instance URL and a permanent token.
 
 1. **Create a permanent token** in YouTrack:
    *Profile → Account Security → Authentication → New token…* (give it the scopes
-   your work needs — typically YouTrack). It looks like `perm:xxxxxxxx`.
+   your work needs — typically YouTrack). Depending on your YouTrack version the
+   token starts with either `perm:` (older) or `perm-` (newer) — paste whichever
+   yours gives you, prefix included.
 
 2. **Point trackpilot at your instance** and store the token:
 
@@ -133,12 +135,12 @@ no issue is created. Link target IDs (`--relates`, `--depends-on`, `--subtask-of
 are validated by YouTrack's command engine after the issue is created.
 
 ```bash
-trackpilot create --project RC --summary "Release" --type Task \
+trackpilot create --project ABC --summary "Release" --type Task \
   --assignee "Javad Tavakoli" \
-  --field "RC Squad=Squad 2" --field "Team=Front-End" --field "Team=QA" \
+  --field "Squad=Squad 2" --field "Team=Front-End" --field "Team=QA" \
   --field "Estimation=1d" \
   --tag scope:infra --tag unplanned \
-  --relates RC-211
+  --relates ABC-211
 ```
 
 Flag reference for `create`:
@@ -161,7 +163,7 @@ flag.
 ```bash
 trackpilot update ABC-123 --state "In Progress"
 trackpilot update ABC-123 --summary "Clearer title" --description "Updated body"
-trackpilot update RC-123 --assignee "Javad Tavakoli" --field "Team=Front-End" --tag scope:infra
+trackpilot update ABC-123 --assignee "Javad Tavakoli" --field "Team=Front-End" --tag scope:infra
 ```
 
 ### `comment <id> --text "..."`
@@ -176,7 +178,7 @@ List all custom field names, their allowed values, and available tags for a
 project. Use this to discover what to pass to `--field` and `--tag`.
 
 ```bash
-trackpilot fields RC
+trackpilot fields ABC
 ```
 
 ### `command <id> --query "<yt-command>"`

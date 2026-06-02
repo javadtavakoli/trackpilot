@@ -1,6 +1,6 @@
 // Git helpers for the `release` command: list commits in head..base and pull
 // candidate issue tokens out of their messages (subjects + bodies, which carry
-// merge-commit branch names like "Merge branch 'feat/rc-1-fix'").
+// merge-commit branch names like "Merge branch 'feat/abc-1-fix'").
 
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -9,7 +9,7 @@ import { AppError } from './api.mjs';
 const run = promisify(execFile);
 const NUL = String.fromCharCode(0);
 
-// LETTERS-NUMBER, e.g. RC-1, APP-42. Prefix must start with a letter.
+// LETTERS-NUMBER, e.g. ABC-1, APP-42. Prefix must start with a letter.
 const TOKEN_RE = /\b([a-z][a-z0-9]*)-(\d+)\b/gi;
 
 export async function commitMessages(base, head) {

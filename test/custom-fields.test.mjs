@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { buildCustomFields } from '../src/custom-fields.mjs';
 
 const schema = [
-  { name: 'RC Squad', type: 'SingleEnumIssueCustomField', values: ['Squad 1', 'Squad 2'] },
+  { name: 'Squad', type: 'SingleEnumIssueCustomField', values: ['Squad 1', 'Squad 2'] },
   { name: 'Type', type: 'SingleEnumIssueCustomField', values: ['Bug', 'Task'] },
   { name: 'Team', type: 'MultiEnumIssueCustomField', values: ['Front-End', 'QA', 'Design'] },
   { name: 'Estimation', type: 'PeriodIssueCustomField', values: [] },
@@ -14,8 +14,8 @@ const schema = [
 ];
 
 test('single enum -> { name }', () => {
-  assert.deepEqual(buildCustomFields([{ name: 'RC Squad', value: 'Squad 2' }], schema), [
-    { name: 'RC Squad', $type: 'SingleEnumIssueCustomField', value: { name: 'Squad 2' } },
+  assert.deepEqual(buildCustomFields([{ name: 'Squad', value: 'Squad 2' }], schema), [
+    { name: 'Squad', $type: 'SingleEnumIssueCustomField', value: { name: 'Squad 2' } },
   ]);
 });
 
@@ -58,22 +58,22 @@ test('simple -> raw scalar', () => {
 
 test('single-valued type with duplicates uses last-wins', () => {
   assert.deepEqual(
-    buildCustomFields([{ name: 'RC Squad', value: 'Squad 1' }, { name: 'RC Squad', value: 'Squad 2' }], schema),
-    [{ name: 'RC Squad', $type: 'SingleEnumIssueCustomField', value: { name: 'Squad 2' } }],
+    buildCustomFields([{ name: 'Squad', value: 'Squad 1' }, { name: 'Squad', value: 'Squad 2' }], schema),
+    [{ name: 'Squad', $type: 'SingleEnumIssueCustomField', value: { name: 'Squad 2' } }],
   );
 });
 
 test('preserves first-seen field order', () => {
   const out = buildCustomFields(
-    [{ name: 'Type', value: 'Task' }, { name: 'RC Squad', value: 'Squad 2' }],
+    [{ name: 'Type', value: 'Task' }, { name: 'Squad', value: 'Squad 2' }],
     schema,
   );
-  assert.deepEqual(out.map((f) => f.name), ['Type', 'RC Squad']);
+  assert.deepEqual(out.map((f) => f.name), ['Type', 'Squad']);
 });
 
 test('case-insensitive field name match, outputs canonical name', () => {
-  const out = buildCustomFields([{ name: 'rc squad', value: 'Squad 2' }], schema);
-  assert.equal(out[0].name, 'RC Squad');
+  const out = buildCustomFields([{ name: 'squad', value: 'Squad 2' }], schema);
+  assert.equal(out[0].name, 'Squad');
 });
 
 test('unknown field throws', () => {

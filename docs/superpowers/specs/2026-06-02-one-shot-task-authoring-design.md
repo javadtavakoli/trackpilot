@@ -7,7 +7,7 @@
 ## Problem
 
 Creating one ordinary task today takes ~10 round trips and trial-and-error.
-Observed while creating RC-215 ("Release"):
+Observed while creating ABC-215 ("Release"):
 
 1. `create --field "Team=QA"` fails with `Incompatible field type: 111-73`.
    `api.createIssue` hardcodes `$type: 'SingleEnumIssueCustomField'` for every
@@ -18,8 +18,8 @@ Observed while creating RC-215 ("Release"):
    worked).
 3. No tag support → a separate `command … "tag …"` call. Worse, `tag infra`
    **silently created a brand-new tag** because the real tag is `scope:infra`;
-   nothing warned. RC-215 now carries a stray `infra` tag.
-4. No link support → a separate `command … "relates to RC-211"` call.
+   nothing warned. ABC-215 now carries a stray `infra` tag.
+4. No link support → a separate `command … "relates to ABC-211"` call.
 5. `read`/`list` don't return tags or links, so verifying the result meant
    guessing query syntax (`relates:` returned 0; `links:` worked).
 6. Errors surface YouTrack's internal field id (`111-73`), not the field name.
@@ -51,7 +51,7 @@ token. They define what the design may rely on.
   per-sub-command `error` boolean **without mutating**. It also distinguishes
   `Add tag X` (existing) from `Add new tag X` (would create one).
 - **Command formatting (confirmed via assist):** one concern per command needs
-  **no braces**, even for multi-word values — `RC Squad Squad 1`,
+  **no braces**, even for multi-word values — `Squad Squad 1`,
   `Type User Story`, `Priority Show-stopper`, `add tag scope:infra` all parse
   `error:false`. Braces are *wrong*: `tag {scope:infra}` is read as creating a
   literal new tag, and `Type {User Story}` errors. A combined multi-command
@@ -61,8 +61,8 @@ token. They define what the design may rely on.
 ## Implementation revision (2026-06-02, post-e2e)
 
 > **The "Approach" below was revised during implementation.** End-to-end testing
-> exposed that the RC project marks **`RC Squad` as required at creation time**:
-> the bare-create POST fails with `400: RC Squad is required` before any
+> exposed that the ABC project marks **`Squad` as required at creation time**:
+> the bare-create POST fails with `400: Squad is required` before any
 > post-create command can run, so the pure command-API approach cannot create
 > issues in such projects at all.
 >
@@ -188,7 +188,7 @@ flag. `--tag`/`--relates`/etc. are conveniences that also get validation.
   multi-value `--field` repetition and link flags.
 - API shaping (`shapeIssue` with tags/links; `projectSchema` parsing): unit
   tests against captured JSON fixtures from the probes above.
-- Manual end-to-end: re-create a task like RC-215 in one `create` call and
+- Manual end-to-end: re-create a task like ABC-215 in one `create` call and
   confirm the returned object shows correct tags, link, assignee, and fields.
 
 ## Error handling

@@ -83,7 +83,7 @@ single invocation.
 1. Run `git log <base>..<head> --format=%H%n%B` in the **current working
    directory's** repo to get every commit in `head` not in `base`, including
    full commit bodies (which capture merge-commit branch names such as
-   `Merge branch 'feat/rc-1-fix-thing'`).
+   `Merge branch 'feat/abc-1-fix-thing'`).
 2. Scan each commit message (subject + body) for `LETTERS-NUMBER` tokens via
    regex (case-insensitive, e.g. `/[a-z][a-z0-9]*-\d+/gi`).
 3. Normalize to uppercase and dedupe.

@@ -9,7 +9,7 @@
 **Tech Stack:** Node ≥20 ESM, built-in `fetch`, built-in `node:test`/`node:assert` (no new runtime deps). Single existing runtime dep: `@napi-rs/keyring`.
 
 > **Revision (implemented):** Tasks 6–8 below were superseded after e2e testing
-> revealed `RC Squad` is required at creation time (bare-create 400s before any
+> revealed `Squad` is required at creation time (bare-create 400s before any
 > command runs). Custom fields incl. assignee are now set via a typed REST
 > `customFields` POST body (new `src/custom-fields.mjs` `buildCustomFields`;
 > `api.createIssue({customFields})` + `api.setCustomFields(id, fields)`;
@@ -234,30 +234,30 @@ import { shapeIssue, shapeLinks } from '../src/api.mjs';
 
 test('shapeLinks keeps only non-empty buckets, flattens to {type,direction,id}', () => {
   const raw = [
-    { direction: 'BOTH', linkType: { name: 'Relates' }, issues: [{ idReadable: 'RC-211' }] },
+    { direction: 'BOTH', linkType: { name: 'Relates' }, issues: [{ idReadable: 'ABC-211' }] },
     { direction: 'OUTWARD', linkType: { name: 'Subtask' }, issues: [] },
-    { direction: 'OUTWARD', linkType: { name: 'Depend' }, issues: [{ idReadable: 'RC-9' }] },
+    { direction: 'OUTWARD', linkType: { name: 'Depend' }, issues: [{ idReadable: 'ABC-9' }] },
   ];
   assert.deepEqual(shapeLinks(raw), [
-    { type: 'Relates', direction: 'BOTH', id: 'RC-211' },
-    { type: 'Depend', direction: 'OUTWARD', id: 'RC-9' },
+    { type: 'Relates', direction: 'BOTH', id: 'ABC-211' },
+    { type: 'Depend', direction: 'OUTWARD', id: 'ABC-9' },
   ]);
 });
 
 test('shapeIssue includes tags and links arrays', () => {
   const issue = {
-    idReadable: 'RC-215',
+    idReadable: 'ABC-215',
     summary: 'Release',
     description: null,
-    project: { shortName: 'RC' },
+    project: { shortName: 'ABC' },
     reporter: { fullName: 'Javad Tavakoli' },
     customFields: [{ name: 'State', value: { name: 'Open' } }],
     tags: [{ name: 'unplanned' }, { name: 'scope:infra' }],
-    links: [{ direction: 'BOTH', linkType: { name: 'Relates' }, issues: [{ idReadable: 'RC-211' }] }],
+    links: [{ direction: 'BOTH', linkType: { name: 'Relates' }, issues: [{ idReadable: 'ABC-211' }] }],
   };
   const shaped = shapeIssue(issue);
   assert.deepEqual(shaped.tags, ['unplanned', 'scope:infra']);
-  assert.deepEqual(shaped.links, [{ type: 'Relates', direction: 'BOTH', id: 'RC-211' }]);
+  assert.deepEqual(shaped.links, [{ type: 'Relates', direction: 'BOTH', id: 'ABC-211' }]);
   assert.equal(shaped.state, 'Open');
 });
 ```
@@ -360,9 +360,9 @@ Expected: PASS — both tests pass. (The shaper tests don't assert on `url`.)
 
 - [ ] **Step 5: Verify read still works end-to-end**
 
-Run: `node bin/trackpilot.mjs read RC-215`
+Run: `node bin/trackpilot.mjs read ABC-215`
 Expected: JSON now contains `"tags": ["unplanned","scope:infra"]` and
-`"links": [{"type":"Relates","direction":"BOTH","id":"RC-211"}]`, plus `url`.
+`"links": [{"type":"Relates","direction":"BOTH","id":"ABC-211"}]`, plus `url`.
 
 - [ ] **Step 6: Commit**
 
@@ -512,7 +512,7 @@ git commit -m "feat: add tags/users/projectSchema/assist/applyCommands to api"
 Pure. Input is already-resolved canonical values (login for assignee, exact tag
 names, `{name, value}` for fields, ID arrays for links). Output is an ordered
 `[{ concern, command }]`. No braces — one concern per command (verified during
-design: `RC Squad Squad 1`, `Type User Story` parse cleanly).
+design: `Squad Squad 1`, `Type User Story` parse cleanly).
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -527,25 +527,25 @@ test('builds commands in order: assignee, fields, tags, links', () => {
   const cmds = buildCommands({
     assignee: 'Javadtavakoli95',
     fields: [
-      { name: 'RC Squad', value: 'Squad 2' },
+      { name: 'Squad', value: 'Squad 2' },
       { name: 'Team', value: 'Front-End' },
       { name: 'Team', value: 'QA' },
       { name: 'Estimation', value: '1d' },
     ],
     tags: ['scope:infra', 'unplanned'],
-    relates: ['RC-211'],
+    relates: ['ABC-211'],
     dependsOn: [],
     subtaskOf: [],
   });
   assert.deepEqual(cmds, [
     { concern: 'assignee', command: 'for Javadtavakoli95' },
-    { concern: 'field:RC Squad', command: 'RC Squad Squad 2' },
+    { concern: 'field:Squad', command: 'Squad Squad 2' },
     { concern: 'field:Team', command: 'Team Front-End' },
     { concern: 'field:Team', command: 'Team QA' },
     { concern: 'field:Estimation', command: 'Estimation 1d' },
     { concern: 'tag:scope:infra', command: 'add tag scope:infra' },
     { concern: 'tag:unplanned', command: 'add tag unplanned' },
-    { concern: 'link:relates:RC-211', command: 'relates to RC-211' },
+    { concern: 'link:relates:ABC-211', command: 'relates to ABC-211' },
   ]);
 });
 
@@ -554,10 +554,10 @@ test('omits empty groups and returns [] for no inputs', () => {
 });
 
 test('builds depends-on and subtask-of links', () => {
-  const cmds = buildCommands({ dependsOn: ['RC-1'], subtaskOf: ['RC-2'] });
+  const cmds = buildCommands({ dependsOn: ['ABC-1'], subtaskOf: ['ABC-2'] });
   assert.deepEqual(cmds, [
-    { concern: 'link:depends:RC-1', command: 'depends on RC-1' },
-    { concern: 'link:subtask:RC-2', command: 'subtask of RC-2' },
+    { concern: 'link:depends:ABC-1', command: 'depends on ABC-1' },
+    { concern: 'link:subtask:ABC-2', command: 'subtask of ABC-2' },
   ]);
 });
 ```
@@ -671,7 +671,7 @@ test('assertAssistClean throws on unintended new tag', () => {
 });
 
 const schema = [
-  { name: 'RC Squad', type: 'SingleEnumIssueCustomField', values: ['Squad 1', 'Squad 2'] },
+  { name: 'Squad', type: 'SingleEnumIssueCustomField', values: ['Squad 1', 'Squad 2'] },
   { name: 'Team', type: 'MultiEnumIssueCustomField', values: ['Front-End', 'QA', 'Design'] },
   { name: 'Estimation', type: 'PeriodIssueCustomField', values: [] },
 ];
@@ -683,11 +683,11 @@ test('resolveInputs maps assignee, enum field, period field, and tag to canonica
     raw: {
       assignee: 'javad tavakoli',
       fields: [
-        { name: 'RC Squad', value: 'squad 2' },
+        { name: 'Squad', value: 'squad 2' },
         { name: 'Estimation', value: '1d' },
       ],
       tags: ['unplanned'],
-      relates: ['RC-211'],
+      relates: ['ABC-211'],
     },
     schema,
     users,
@@ -695,11 +695,11 @@ test('resolveInputs maps assignee, enum field, period field, and tag to canonica
   });
   assert.equal(out.assignee, 'Javadtavakoli95');
   assert.deepEqual(out.fields, [
-    { name: 'RC Squad', value: 'Squad 2' },
+    { name: 'Squad', value: 'Squad 2' },
     { name: 'Estimation', value: '1d' }, // period passes through
   ]);
   assert.deepEqual(out.tags, ['unplanned']);
-  assert.deepEqual(out.relates, ['RC-211']);
+  assert.deepEqual(out.relates, ['ABC-211']);
 });
 
 test('resolveInputs throws with suggestions on a bad tag', () => {
@@ -718,7 +718,7 @@ test('resolveInputs throws on unknown field name', () => {
 
 test('resolveInputs throws on bad enum value with valid options listed', () => {
   assert.throws(
-    () => resolveInputs({ raw: { fields: [{ name: 'RC Squad', value: 'Squad 9' }] }, schema, users, tags }),
+    () => resolveInputs({ raw: { fields: [{ name: 'Squad', value: 'Squad 9' }] }, schema, users, tags }),
     /Squad 1|Squad 2/,
   );
 });
@@ -945,24 +945,24 @@ unknown tag/user/field value aborts with no issue created.
 
 Run:
 ```bash
-node bin/trackpilot.mjs create --project RC --summary "Plan test — delete me" \
+node bin/trackpilot.mjs create --project ABC --summary "Plan test — delete me" \
   --type Task --assignee "javad tavakoli" \
-  --field "RC Squad=Squad 2" --field "Team=Front-End" --field "Team=QA" \
-  --field "Estimation=1d" --tag scope:infra --tag unplanned --relates RC-211
+  --field "Squad=Squad 2" --field "Team=Front-End" --field "Team=QA" \
+  --field "Estimation=1d" --tag scope:infra --tag unplanned --relates ABC-211
 ```
 Expected: a single JSON issue object with correct `assignee`, `customFields`
-(RC Squad, Team "Front-End, QA", Estimation 1d, Type Task), `tags`
-(`scope:infra`, `unplanned`), and `links` (Relates RC-211) — no errors, one call.
+(Squad, Team "Front-End, QA", Estimation 1d, Type Task), `tags`
+(`scope:infra`, `unplanned`), and `links` (Relates ABC-211) — no errors, one call.
 
 - [ ] **Step 4: Verify validation rejects a bad value and creates NO issue**
 
 Run:
 ```bash
-node bin/trackpilot.mjs create --project RC --summary "Validation test — should not be created" --tag infra
+node bin/trackpilot.mjs create --project ABC --summary "Validation test — should not be created" --tag infra
 ```
 Expected: `{ "error": "unknown tag \"infra\". Did you mean: scope:infra, ..." }`,
 exit 1, and **no new issue** (confirm with
-`node bin/trackpilot.mjs list --query "project: RC summary: {Validation test — should not be created}"` → count 0). Because `prepareCommands` runs before
+`node bin/trackpilot.mjs list --query "project: ABC summary: {Validation test — should not be created}"` → count 0). Because `prepareCommands` runs before
 `createIssue`, the failure happens before anything is written.
 
 - [ ] **Step 5: Clean up the test issue created in Step 3**
@@ -1038,20 +1038,20 @@ export async function run({ api, positionals, options }) {
 ```
 
 Note: `updateIssue` in api.mjs already handles summary/description/state. The
-project key for schema lookup is derived from the issue id prefix (e.g. `RC-215`
-→ `RC`), which matches project short-names in this instance.
+project key for schema lookup is derived from the issue id prefix (e.g. `ABC-215`
+→ `ABC`), which matches project short-names in this instance.
 
 - [ ] **Step 2: Verify update end-to-end**
 
-Run (use a disposable test issue id from Task 7, here shown as `RC-XXX`):
+Run (use a disposable test issue id from Task 7, here shown as `ABC-XXX`):
 ```bash
-node bin/trackpilot.mjs update RC-XXX --field "Estimation=2d" --tag unplanned
+node bin/trackpilot.mjs update ABC-XXX --field "Estimation=2d" --tag unplanned
 ```
 Expected: JSON shows Estimation `2d` and `unplanned` in `tags`, no errors.
 
 - [ ] **Step 3: Verify a bad value is rejected with suggestions**
 
-Run: `node bin/trackpilot.mjs update RC-XXX --assignee "nobody-xyz"`
+Run: `node bin/trackpilot.mjs update ABC-XXX --assignee "nobody-xyz"`
 Expected: `{ "error": "unknown user \"nobody-xyz\". Did you mean: ..." }`, exit 1.
 
 - [ ] **Step 4: Commit**
@@ -1117,8 +1117,8 @@ And update the `create`/`update` USAGE lines to mention the new flags:
 
 - [ ] **Step 3: Verify**
 
-Run: `node bin/trackpilot.mjs fields RC`
-Expected: JSON with `fields` (each `{name,type,values}` — e.g. RC Squad → [Squad 1, Squad 2], Team → [...], Type → [Bug, Epic, Task, User Story]) and `tags` (incl. `scope:infra`, `unplanned`).
+Run: `node bin/trackpilot.mjs fields ABC`
+Expected: JSON with `fields` (each `{name,type,values}` — e.g. Squad → [Squad 1, Squad 2], Team → [...], Type → [Bug, Epic, Task, User Story]) and `tags` (incl. `scope:infra`, `unplanned`).
 
 - [ ] **Step 4: Commit**
 
@@ -1141,12 +1141,12 @@ In `README.md`, update the `create` section and add new flags + the `fields`
 command. Document, with an example, the one-shot create:
 
 ```bash
-trackpilot create --project RC --summary "Release" --type Task \
+trackpilot create --project ABC --summary "Release" --type Task \
   --assignee "Javad Tavakoli" \
-  --field "RC Squad=Squad 2" --field "Team=Front-End" --field "Team=QA" \
+  --field "Squad=Squad 2" --field "Team=Front-End" --field "Team=QA" \
   --field "Estimation=1d" \
   --tag scope:infra --tag unplanned \
-  --relates RC-211
+  --relates ABC-211
 ```
 
 State explicitly: values are validated before writing (unknown tag/user/field
@@ -1172,19 +1172,19 @@ git commit -m "docs: document one-shot create flags and fields command"
 
 **Files:** none (verification only)
 
-- [ ] **Step 1: Recreate the RC-215-style task in ONE command**
+- [ ] **Step 1: Recreate the ABC-215-style task in ONE command**
 
 Run:
 ```bash
-node bin/trackpilot.mjs create --project RC --summary "Release (e2e check — delete me)" \
+node bin/trackpilot.mjs create --project ABC --summary "Release (e2e check — delete me)" \
   --description "Release rango-client first, then app-v2." --type Task \
   --assignee "Javad Tavakoli" \
-  --field "RC Squad=Squad 2" --field "Team=Front-End" --field "Team=QA" --field "Estimation=1d" \
-  --tag scope:infra --tag unplanned --relates RC-211
+  --field "Squad=Squad 2" --field "Team=Front-End" --field "Team=QA" --field "Estimation=1d" \
+  --tag scope:infra --tag unplanned --relates ABC-211
 ```
 Expected: one JSON object, no errors, with: `assignee: "Javad Tavakoli"`,
-`tags: ["scope:infra","unplanned"]`, `links: [{type:"Relates",...,id:"RC-211"}]`,
-and `customFields` showing RC Squad Squad 2, Team "Front-End, QA", Estimation 1d,
+`tags: ["scope:infra","unplanned"]`, `links: [{type:"Relates",...,id:"ABC-211"}]`,
+and `customFields` showing Squad Squad 2, Team "Front-End, QA", Estimation 1d,
 Type Task. This is the entire original task in a single call — confirming the
 ~10-round-trip workflow is now one.
 
