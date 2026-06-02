@@ -62,7 +62,7 @@ export function shapeIssue(issue) {
   };
 }
 
-export function createApi({ baseUrl, token }) {
+export function createApi({ baseUrl, token, fetch: fetchFn } = {}) {
   if (!baseUrl) {
     throw new AppError('no baseUrl: run `trackpilot config set --base-url <url>`');
   }
@@ -71,6 +71,7 @@ export function createApi({ baseUrl, token }) {
   }
 
   const apiBase = `${baseUrl}/api`;
+  const doFetch = fetchFn ?? globalThis.fetch;
 
   async function request(method, path, { query, body } = {}) {
     const url = new URL(apiBase + path);
@@ -81,7 +82,7 @@ export function createApi({ baseUrl, token }) {
     }
     let res;
     try {
-      res = await fetch(url, {
+      res = await doFetch(url, {
         method,
         headers: {
           Authorization: `Bearer ${token}`,
