@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { assertAssistClean, resolveInputs, prepareCommands, applyPrepared } from '../src/apply-fields.mjs';
+import { assertAssistClean, resolveInputs, prepareCreate, applyPrepared } from '../src/apply-fields.mjs';
 
 test('assertAssistClean passes when all commands ok and no new tag', () => {
   assert.doesNotThrow(() =>
@@ -78,7 +78,7 @@ test('resolveInputs throws on bad enum value with valid options listed', () => {
   );
 });
 
-// --- prepareCommands / applyPrepared (orchestration) -------------------------
+// --- prepareCreate / applyPrepared (orchestration) -------------------------
 
 function mockApi(overrides = {}) {
   const calls = [];
@@ -97,35 +97,54 @@ function mockApi(overrides = {}) {
   };
 }
 
-test('prepareCommands returns [] and fetches nothing when there is no work', async () => {
+test('prepareCreate returns empty payload and fetches nothing when there is no work', async () => {
   const api = mockApi();
-  const cmds = await prepareCommands(api, {}, 'RC');
-  assert.deepEqual(cmds, []);
+  const out = await prepareCreate(api, {}, 'RC');
+  assert.deepEqual(out, { customFields: [], commands: [] });
   assert.equal(api.calls.length, 0);
 });
 
-test('prepareCommands does no lookups when only links are present', async () => {
+test('prepareCreate does no lookups when only links are present', async () => {
   const api = mockApi();
-  const cmds = await prepareCommands(api, { relates: ['RC-1'] }, 'RC');
-  assert.deepEqual(api.calls.map((c) => c.name), []); // no schema/users/tags fetch
-  assert.deepEqual(cmds, [{ concern: 'link:relates:RC-1', command: 'relates to RC-1' }]);
+  const out = await prepareCreate(api, { relates: ['RC-1'] }, 'RC');
+  assert.deepEqual(api.calls.map((c) => c.name), []);
+  assert.deepEqual(out.customFields, []);
+  assert.deepEqual(out.commands, [{ concern: 'link:relates:RC-1', command: 'relates to RC-1' }]);
 });
 
-test('prepareCommands fetches only the lookups it needs', async () => {
+test('prepareCreate builds typed customFields (fields + assignee) and tag/link commands', async () => {
   const api = mockApi({
     tags: ['scope:infra', 'unplanned'],
-    users: [{ login: 'u1', name: 'User One', fullName: 'User One' }],
-    projectSchema: [{ name: 'Team', type: 'MultiEnumIssueCustomField', values: ['QA'] }],
+    users: [{ login: 'jdoe', name: 'Jane Doe', fullName: 'Jane Doe' }],
+    projectSchema: [
+      { name: 'RC Squad', type: 'SingleEnumIssueCustomField', values: ['Squad 1', 'Squad 2'] },
+      { name: 'Team', type: 'MultiEnumIssueCustomField', values: ['Front-End', 'QA'] },
+      { name: 'Assignee', type: 'MultiUserIssueCustomField', values: [] },
+    ],
   });
-  await prepareCommands(api, { assignee: 'user one', tags: ['unplanned'], fields: [{ name: 'Team', value: 'QA' }] }, 'RC');
-  const names = api.calls.map((c) => c.name).sort();
-  assert.deepEqual(names, ['projectSchema', 'tags', 'users']);
+  const out = await prepareCreate(
+    api,
+    { assignee: 'jane doe', fields: [{ name: 'RC Squad', value: 'Squad 2' }, { name: 'Team', value: 'Front-End' }, { name: 'Team', value: 'QA' }], tags: ['unplanned'], relates: ['RC-211'] },
+    'RC',
+  );
+  assert.deepEqual(api.calls.map((c) => c.name).sort(), ['projectSchema', 'tags', 'users']);
+  assert.deepEqual(out.customFields, [
+    { name: 'RC Squad', $type: 'SingleEnumIssueCustomField', value: { name: 'Squad 2' } },
+    { name: 'Team', $type: 'MultiEnumIssueCustomField', value: [{ name: 'Front-End' }, { name: 'QA' }] },
+    { name: 'Assignee', $type: 'MultiUserIssueCustomField', value: [{ login: 'jdoe' }] },
+  ]);
+  assert.deepEqual(out.commands, [
+    { concern: 'tag:unplanned', command: 'add tag unplanned' },
+    { concern: 'link:relates:RC-211', command: 'relates to RC-211' },
+  ]);
 });
 
-test('prepareCommands does NOT fetch users/tags when only fields present', async () => {
+test('prepareCreate fetches schema (not users/tags) when only fields present', async () => {
   const api = mockApi({ projectSchema: [{ name: 'Estimation', type: 'PeriodIssueCustomField', values: [] }] });
-  await prepareCommands(api, { fields: [{ name: 'Estimation', value: '1d' }] }, 'RC');
+  const out = await prepareCreate(api, { fields: [{ name: 'Estimation', value: '1d' }] }, 'RC');
   assert.deepEqual(api.calls.map((c) => c.name), ['projectSchema']);
+  assert.deepEqual(out.customFields, [{ name: 'Estimation', $type: 'PeriodIssueCustomField', value: { presentation: '1d' } }]);
+  assert.deepEqual(out.commands, []);
 });
 
 test('applyPrepared is a no-op on empty commands', async () => {

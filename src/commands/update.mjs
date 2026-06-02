@@ -3,7 +3,7 @@
 //   [--relates <ID> ...] [--depends-on <ID> ...] [--subtask-of <ID> ...]
 
 import { AppError } from '../api.mjs';
-import { prepareCommands, applyPrepared } from '../apply-fields.mjs';
+import { prepareCreate, applyPrepared } from '../apply-fields.mjs';
 import { parseFields, asList } from './create.mjs';
 
 export async function run({ api, positionals, options }) {
@@ -34,11 +34,13 @@ export async function run({ api, positionals, options }) {
     throw new AppError('nothing to update: pass at least one of --summary, --description, --state, --assignee, --field, --tag, --relates, --depends-on, --subtask-of');
   }
 
-  // Validate field/tag/link/assignee inputs before mutating anything.
   const projectKey = id.split('-')[0];
-  const commands = hasFieldWork ? await prepareCommands(api, raw, projectKey) : [];
+  const { customFields, commands } = hasFieldWork
+    ? await prepareCreate(api, raw, projectKey)
+    : { customFields: [], commands: [] };
 
   if (Object.keys(patch).length) await api.updateIssue(id, patch);
+  await api.setCustomFields(id, customFields);
   await applyPrepared(api, id, commands);
 
   return api.readIssue(id);

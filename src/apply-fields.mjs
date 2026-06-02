@@ -1,6 +1,9 @@
 import { AppError } from './api.mjs';
 import { resolveValue } from './resolve.mjs';
 import { buildCommands } from './build-commands.mjs';
+import { buildCustomFields } from './custom-fields.mjs';
+
+const ASSIGNEE_FIELD = 'Assignee';
 
 const ENUM_TYPES = new Set([
   'SingleEnumIssueCustomField',
@@ -73,16 +76,18 @@ export function resolveInputs({ raw = {}, schema = [], users = [], tags = [] }) 
   return out;
 }
 
-// Phase 1 (no issue id needed): fetch lookups, resolve/validate, build commands.
-// Throws AppError (with suggestions) on any bad value BEFORE anything is written.
-export async function prepareCommands(api, raw, projectKey) {
+// Phase 1 (no issue id needed): fetch lookups, resolve/validate, and produce
+// BOTH the typed customFields payload (fields + assignee, set via REST) and the
+// tag/link command list. Throws AppError (with suggestions) on any bad value
+// BEFORE anything is written.
+export async function prepareCreate(api, raw, projectKey) {
   const has = (arr) => Array.isArray(arr) && arr.length > 0;
-  const needSchema = has(raw.fields);
+  const needSchema = has(raw.fields) || !!raw.assignee; // assignee needs its field $type
   const needUsers = !!raw.assignee;
   const needTags = has(raw.tags);
   if (!needSchema && !needUsers && !needTags &&
       !has(raw.relates) && !has(raw.dependsOn) && !has(raw.subtaskOf)) {
-    return [];
+    return { customFields: [], commands: [] };
   }
 
   const [schema, users, tags] = await Promise.all([
@@ -92,7 +97,19 @@ export async function prepareCommands(api, raw, projectKey) {
   ]);
 
   const resolved = resolveInputs({ raw, schema, users, tags });
-  return buildCommands(resolved);
+
+  const fieldInputs = [...resolved.fields];
+  if (resolved.assignee) fieldInputs.push({ name: ASSIGNEE_FIELD, value: resolved.assignee });
+  const customFields = buildCustomFields(fieldInputs, schema);
+
+  const commands = buildCommands({
+    tags: resolved.tags,
+    relates: resolved.relates,
+    dependsOn: resolved.dependsOn,
+    subtaskOf: resolved.subtaskOf,
+  });
+
+  return { customFields, commands };
 }
 
 // Phase 2 (needs the issue id): dry-run via assist, then apply grouped commands.

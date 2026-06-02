@@ -3,7 +3,7 @@
 //   [--tag <name> ...] [--relates <ID> ...] [--depends-on <ID> ...] [--subtask-of <ID> ...]
 
 import { AppError } from '../api.mjs';
-import { prepareCommands, applyPrepared } from '../apply-fields.mjs';
+import { prepareCreate, applyPrepared } from '../apply-fields.mjs';
 
 // "Name=Value" (repeatable) -> [{ name, value }]
 export function parseFields(raw) {
@@ -42,13 +42,13 @@ export async function run({ api, options }) {
     subtaskOf: asList(options['subtask-of']),
   };
 
-  // Validate everything BEFORE creating the issue (bad input -> no issue created).
-  const commands = await prepareCommands(api, raw, project);
+  const { customFields, commands } = await prepareCreate(api, raw, project);
 
   const id = await api.createIssue({
     project,
     summary,
     description: typeof options.description === 'string' ? options.description : undefined,
+    customFields,
   });
 
   await applyPrepared(api, id, commands);
