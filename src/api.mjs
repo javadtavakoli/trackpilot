@@ -6,9 +6,53 @@ export class AppError extends Error {}
 const ISSUE_FIELDS =
   'idReadable,summary,description,project(shortName,name),' +
   'reporter(login,fullName),created,updated,' +
-  'customFields(name,value(name,login,fullName,presentation,minutes))';
+  'customFields(name,value(name,login,fullName,presentation,minutes)),' +
+  'tags(name),' +
+  'links(direction,linkType(name),issues(idReadable))';
 
 const COMMENT_FIELDS = 'id,text,created,author(login,fullName)';
+
+export function renderOne(v) {
+  if (v == null) return null;
+  if (typeof v !== 'object') return String(v);
+  return v.name || v.fullName || v.login || v.presentation || null;
+}
+
+export function fieldValue(cf) {
+  const v = cf?.value;
+  if (v == null) return null;
+  if (Array.isArray(v)) return v.map(renderOne).filter(Boolean).join(', ') || null;
+  return renderOne(v);
+}
+
+export function shapeLinks(links) {
+  const out = [];
+  for (const link of links || []) {
+    for (const issue of link.issues || []) {
+      out.push({ type: link.linkType?.name ?? null, direction: link.direction ?? null, id: issue.idReadable });
+    }
+  }
+  return out;
+}
+
+export function shapeIssue(issue) {
+  const fields = {};
+  for (const cf of issue.customFields || []) fields[cf.name] = fieldValue(cf);
+  return {
+    id: issue.idReadable,
+    summary: issue.summary,
+    description: issue.description ?? null,
+    project: issue.project?.shortName ?? null,
+    state: fields.State ?? null,
+    type: fields.Type ?? null,
+    priority: fields.Priority ?? null,
+    assignee: fields.Assignee ?? null,
+    reporter: issue.reporter?.fullName || issue.reporter?.login || null,
+    tags: (issue.tags || []).map((t) => t.name),
+    links: shapeLinks(issue.links),
+    customFields: fields,
+  };
+}
 
 export function createApi({ baseUrl, token }) {
   if (!baseUrl) {
@@ -68,35 +112,8 @@ export function createApi({ baseUrl, token }) {
     return `${baseUrl}/issue/${idReadable}`;
   }
 
-  function fieldValue(cf) {
-    const v = cf?.value;
-    if (v == null) return null;
-    if (Array.isArray(v)) return v.map(renderOne).filter(Boolean).join(', ') || null;
-    return renderOne(v);
-  }
-
-  function renderOne(v) {
-    if (v == null) return null;
-    if (typeof v !== 'object') return String(v);
-    return v.name || v.fullName || v.login || v.presentation || null;
-  }
-
-  function shapeIssue(issue) {
-    const fields = {};
-    for (const cf of issue.customFields || []) fields[cf.name] = fieldValue(cf);
-    return {
-      id: issue.idReadable,
-      summary: issue.summary,
-      description: issue.description ?? null,
-      project: issue.project?.shortName ?? null,
-      state: fields.State ?? null,
-      type: fields.Type ?? null,
-      priority: fields.Priority ?? null,
-      assignee: fields.Assignee ?? null,
-      reporter: issue.reporter?.fullName || issue.reporter?.login || null,
-      url: webUrl(issue.idReadable),
-      customFields: fields,
-    };
+  function withUrl(shaped) {
+    return { ...shaped, url: webUrl(shaped.id) };
   }
 
   // --- public API ------------------------------------------------------------
@@ -135,7 +152,7 @@ export function createApi({ baseUrl, token }) {
         query: { fields: COMMENT_FIELDS },
       });
       return {
-        ...shapeIssue(issue),
+        ...withUrl(shapeIssue(issue)),
         comments: (comments || []).map((c) => ({
           author: c.author?.fullName || c.author?.login || null,
           text: c.text,
@@ -147,7 +164,7 @@ export function createApi({ baseUrl, token }) {
       const data = await request('GET', '/issues', {
         query: { query: query || '', $top: limit, fields: ISSUE_FIELDS },
       });
-      return (data || []).map(shapeIssue);
+      return (data || []).map((i) => withUrl(shapeIssue(i)));
     },
 
     // `fields` is an array of { name, value } for single-value enum custom
