@@ -14,7 +14,8 @@
     "node": ">=20"
   },
   "scripts": {
-    "trackpilot": "node bin/trackpilot.mjs"
+    "trackpilot": "node bin/trackpilot.mjs",
+    "test": "node --test"
   },
   "dependencies": {
     "@napi-rs/keyring": "^1.3.0"

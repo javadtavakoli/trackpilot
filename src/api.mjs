@@ -6,9 +6,61 @@ export class AppError extends Error {}
 const ISSUE_FIELDS =
   'idReadable,summary,description,project(shortName,name),' +
   'reporter(login,fullName),created,updated,' +
-  'customFields(name,value(name,login,fullName,presentation,minutes))';
+  'customFields(name,value(name,login,fullName,presentation,minutes)),' +
+  'tags(name),' +
+  'links(direction,linkType(name),issues(idReadable))';
 
 const COMMENT_FIELDS = 'id,text,created,author(login,fullName)';
+
+export function renderOne(v) {
+  if (v == null) return null;
+  if (typeof v !== 'object') return String(v);
+  return v.name || v.fullName || v.login || v.presentation || null;
+}
+
+export function fieldValue(cf) {
+  const v = cf?.value;
+  if (v == null) return null;
+  if (Array.isArray(v)) return v.map(renderOne).filter(Boolean).join(', ') || null;
+  return renderOne(v);
+}
+
+export function shapeLinks(links) {
+  const out = [];
+  for (const link of links || []) {
+    for (const issue of link.issues || []) {
+      out.push({ type: link.linkType?.name ?? null, direction: link.direction ?? null, id: issue.idReadable ?? null });
+    }
+  }
+  return out;
+}
+
+export function shapeSchema(issue) {
+  return (issue.customFields || []).map((cf) => ({
+    name: cf.name,
+    type: cf.$type ?? null,
+    values: (cf.projectCustomField?.bundle?.values || []).map((v) => v.name).filter(Boolean),
+  }));
+}
+
+export function shapeIssue(issue) {
+  const fields = {};
+  for (const cf of issue.customFields || []) fields[cf.name] = fieldValue(cf);
+  return {
+    id: issue.idReadable,
+    summary: issue.summary,
+    description: issue.description ?? null,
+    project: issue.project?.shortName ?? null,
+    state: fields.State ?? null,
+    type: fields.Type ?? null,
+    priority: fields.Priority ?? null,
+    assignee: fields.Assignee ?? null,
+    reporter: issue.reporter?.fullName || issue.reporter?.login || null,
+    tags: (issue.tags || []).map((t) => t.name),
+    links: shapeLinks(issue.links),
+    customFields: fields,
+  };
+}
 
 export function createApi({ baseUrl, token }) {
   if (!baseUrl) {
@@ -68,35 +120,8 @@ export function createApi({ baseUrl, token }) {
     return `${baseUrl}/issue/${idReadable}`;
   }
 
-  function fieldValue(cf) {
-    const v = cf?.value;
-    if (v == null) return null;
-    if (Array.isArray(v)) return v.map(renderOne).filter(Boolean).join(', ') || null;
-    return renderOne(v);
-  }
-
-  function renderOne(v) {
-    if (v == null) return null;
-    if (typeof v !== 'object') return String(v);
-    return v.name || v.fullName || v.login || v.presentation || null;
-  }
-
-  function shapeIssue(issue) {
-    const fields = {};
-    for (const cf of issue.customFields || []) fields[cf.name] = fieldValue(cf);
-    return {
-      id: issue.idReadable,
-      summary: issue.summary,
-      description: issue.description ?? null,
-      project: issue.project?.shortName ?? null,
-      state: fields.State ?? null,
-      type: fields.Type ?? null,
-      priority: fields.Priority ?? null,
-      assignee: fields.Assignee ?? null,
-      reporter: issue.reporter?.fullName || issue.reporter?.login || null,
-      url: webUrl(issue.idReadable),
-      customFields: fields,
-    };
+  function withUrl(shaped) {
+    return { ...shaped, url: webUrl(shaped.id) };
   }
 
   // --- public API ------------------------------------------------------------
@@ -135,7 +160,7 @@ export function createApi({ baseUrl, token }) {
         query: { fields: COMMENT_FIELDS },
       });
       return {
-        ...shapeIssue(issue),
+        ...withUrl(shapeIssue(issue)),
         comments: (comments || []).map((c) => ({
           author: c.author?.fullName || c.author?.login || null,
           text: c.text,
@@ -147,18 +172,11 @@ export function createApi({ baseUrl, token }) {
       const data = await request('GET', '/issues', {
         query: { query: query || '', $top: limit, fields: ISSUE_FIELDS },
       });
-      return (data || []).map(shapeIssue);
+      return (data || []).map((i) => withUrl(shapeIssue(i)));
     },
 
-    // `fields` is an array of { name, value } for single-value enum custom
-    // fields that must be set at creation time (e.g. a required "RC Squad").
-    async createIssue({ project, summary, description, type, fields = [] }) {
+    async createIssue({ project, summary, description, customFields = [] }) {
       const projectId = await this.resolveProjectId(project);
-      const customFields = fields.map(({ name, value }) => ({
-        name,
-        $type: 'SingleEnumIssueCustomField',
-        value: { name: value },
-      }));
       const created = await request('POST', '/issues', {
         query: { fields: 'idReadable' },
         body: {
@@ -168,11 +186,16 @@ export function createApi({ baseUrl, token }) {
           ...(customFields.length ? { customFields } : {}),
         },
       });
-      const id = created.idReadable;
-      if (type) {
-        await this.applyCommand(id, `Type ${type}`);
-      }
-      return this.readIssue(id);
+      return created.idReadable;
+    },
+
+    // Set typed custom fields on an existing issue via the REST POST body.
+    async setCustomFields(id, customFields) {
+      if (!customFields || !customFields.length) return;
+      await request('POST', `/issues/${encodeURIComponent(id)}`, {
+        query: { fields: 'idReadable' },
+        body: { customFields },
+      });
     },
 
     async updateIssue(id, { summary, description, state }) {
@@ -204,6 +227,54 @@ export function createApi({ baseUrl, token }) {
         body: { text },
       });
       return { id, comment: { author: c.author?.fullName || c.author?.login || null, text: c.text } };
+    },
+
+    async tags() {
+      const data = await request('GET', '/issueTags', {
+        query: { fields: 'name', $top: 1000 },
+      });
+      return (data || []).map((t) => t.name).filter(Boolean);
+    },
+
+    async users() {
+      const data = await request('GET', '/users', {
+        query: { fields: 'login,name,fullName', $top: 1000 },
+      });
+      return (data || []).map((u) => ({ login: u.login, name: u.name, fullName: u.fullName }));
+    },
+
+    // Schema-via-issue: admin field endpoints are blocked under our token, but
+    // reading any one issue in the project returns each field's name, type, and
+    // allowed bundle values.
+    async projectSchema(projectKey) {
+      const list = await request('GET', '/issues', {
+        query: {
+          query: `project: ${projectKey}`,
+          $top: 1,
+          fields:
+            'customFields(name,$type,projectCustomField(field(name),bundle(values(name))))',
+        },
+      });
+      if (!list || !list.length) {
+        throw new AppError(`cannot read schema: no issues found in project "${projectKey}"`);
+      }
+      return shapeSchema(list[0]);
+    },
+
+    // Dry-run a command string; returns [{ description, error }] without mutating.
+    async assist(idReadable, query) {
+      const data = await request('POST', '/commands/assist', {
+        query: { fields: 'commands(description,error)' },
+        body: { query, issues: [{ idReadable }] },
+      });
+      return (data?.commands || []).map((c) => ({ description: c.description, error: !!c.error }));
+    },
+
+    // Apply commands one at a time so a failure is attributable to one concern.
+    async applyCommands(idReadable, commands) {
+      for (const cmd of commands) {
+        await this.applyCommand(idReadable, cmd.command);
+      }
     },
 
     webUrl,
