@@ -8,6 +8,16 @@
 
 **Tech Stack:** Node ≥20 ESM, built-in `fetch`, built-in `node:test`/`node:assert` (no new runtime deps). Single existing runtime dep: `@napi-rs/keyring`.
 
+> **Revision (implemented):** Tasks 6–8 below were superseded after e2e testing
+> revealed `RC Squad` is required at creation time (bare-create 400s before any
+> command runs). Custom fields incl. assignee are now set via a typed REST
+> `customFields` POST body (new `src/custom-fields.mjs` `buildCustomFields`;
+> `api.createIssue({customFields})` + `api.setCustomFields(id, fields)`;
+> `apply-fields.mjs` `prepareCreate()` → `{customFields, commands}`); only tags
+> and links remain command-driven (still assist-guarded). See the spec's
+> "Implementation revision" section. The `resolve.mjs`, tags/links output,
+> API-lookups, `fields` command, and validation tasks are unchanged.
+
 ---
 
 ## File Structure

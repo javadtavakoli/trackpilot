@@ -58,13 +58,37 @@ token. They define what the design may rely on.
   string also parses, but grouped single-concern calls are preferred (below).
 - `for me` resolves to login `Javadtavakoli95` (the token owner).
 
-## Approach
+## Implementation revision (2026-06-02, post-e2e)
+
+> **The "Approach" below was revised during implementation.** End-to-end testing
+> exposed that the RC project marks **`RC Squad` as required at creation time**:
+> the bare-create POST fails with `400: RC Squad is required` before any
+> post-create command can run, so the pure command-API approach cannot create
+> issues in such projects at all.
+>
+> **Revised approach (implemented): custom fields — including assignee — are set
+> in the create/update POST body as a typed `customFields` array; only tags and
+> links use the command API.** The `$type`→value shapes were verified live:
+> single-enum/state → `{name}`; multi-enum → `[{name}]`; single-user → `{login}`;
+> **multi-user (e.g. `Assignee`) → `[{login}]`**; period → `{presentation}`;
+> text → `{text}`; simple → raw scalar. Tags can't go in the create POST (they
+> need internal IDs) and links aren't fields, so both remain command-driven
+> (still guarded by the `assist` pre-flight). Client-side validation (schema /
+> users / tags with "did you mean") and validate-before-create are unchanged.
+> New module `src/custom-fields.mjs` builds the typed payload;
+> `apply-fields.mjs` exposes `prepareCreate()` returning `{ customFields, commands }`.
+
+## Approach (original — superseded by the revision above for field writes)
 
 **Chosen: Command-API writes with client-side validation + an `assist`
 pre-flight.** (Alternative considered: typed REST `customFields` payloads —
 rejected because it forces us to replicate YouTrack's per-type value coercion,
 period/user value shapes are untested, and tags/links aren't custom fields
 anyway, so it wouldn't unify the path.)
+
+> Note: the value-coercion concern was real but tractable once each field's
+> exact `$type` was read from the schema; the required-at-create constraint made
+> the REST payload necessary regardless.
 
 Every settable thing maps to one YouTrack command, one concern per command:
 
