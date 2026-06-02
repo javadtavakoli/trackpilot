@@ -35,6 +35,14 @@ export function shapeLinks(links) {
   return out;
 }
 
+export function shapeSchema(issue) {
+  return (issue.customFields || []).map((cf) => ({
+    name: cf.name,
+    type: cf.$type ?? null,
+    values: (cf.projectCustomField?.bundle?.values || []).map((v) => v.name).filter(Boolean),
+  }));
+}
+
 export function shapeIssue(issue) {
   const fields = {};
   for (const cf of issue.customFields || []) fields[cf.name] = fieldValue(cf);
@@ -221,6 +229,54 @@ export function createApi({ baseUrl, token }) {
         body: { text },
       });
       return { id, comment: { author: c.author?.fullName || c.author?.login || null, text: c.text } };
+    },
+
+    async tags() {
+      const data = await request('GET', '/issueTags', {
+        query: { fields: 'name', $top: 1000 },
+      });
+      return (data || []).map((t) => t.name).filter(Boolean);
+    },
+
+    async users() {
+      const data = await request('GET', '/users', {
+        query: { fields: 'login,name,fullName', $top: 1000 },
+      });
+      return (data || []).map((u) => ({ login: u.login, name: u.name, fullName: u.fullName }));
+    },
+
+    // Schema-via-issue: admin field endpoints are blocked under our token, but
+    // reading any one issue in the project returns each field's name, type, and
+    // allowed bundle values.
+    async projectSchema(projectKey) {
+      const list = await request('GET', '/issues', {
+        query: {
+          query: `project: ${projectKey}`,
+          $top: 1,
+          fields:
+            'customFields(name,$type,projectCustomField(field(name),bundle(values(name))))',
+        },
+      });
+      if (!list || !list.length) {
+        throw new AppError(`cannot read schema: no issues found in project "${projectKey}"`);
+      }
+      return shapeSchema(list[0]);
+    },
+
+    // Dry-run a command string; returns [{ description, error }] without mutating.
+    async assist(idReadable, query) {
+      const data = await request('POST', '/commands/assist', {
+        query: { fields: 'commands(description,error)' },
+        body: { query, issues: [{ idReadable }] },
+      });
+      return (data?.commands || []).map((c) => ({ description: c.description, error: !!c.error }));
+    },
+
+    // Apply commands one at a time so a failure is attributable to one concern.
+    async applyCommands(idReadable, commands) {
+      for (const cmd of commands) {
+        await this.applyCommand(idReadable, cmd.command);
+      }
     },
 
     webUrl,
