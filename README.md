@@ -106,7 +106,7 @@ trackpilot projects
 
 ### `read <id>`
 
-Fetch a single issue with its fields and comments.
+Fetch a single issue with its fields, comments, tags, and links.
 
 ```bash
 trackpilot read ABC-123
@@ -115,38 +115,52 @@ trackpilot read ABC-123
 ### `list --query "<yt-query>" [--limit N]`
 
 Search with [YouTrack query syntax](https://www.jetbrains.com/help/youtrack/cloud/search-and-command-attributes.html).
-Default limit is 50.
+Default limit is 50. Output includes `tags` and `links` arrays for each issue.
 
 ```bash
 trackpilot list --query "project: ABC State: Open" --limit 20
 trackpilot list --query "for: me #Unresolved"
 ```
 
-### `create --project <KEY> --summary "..." [--description "..."] [--type <Type>] [--field "Name=Value" ...]`
+### `create --project <KEY> --summary "..." [--description "..."] [--type <Type>] [--assignee <user>] [--field "Name=Value" ...] [--tag <name> ...] [--relates <ID>] [--depends-on <ID>] [--subtask-of <ID>]`
 
-Create a task. `--project` is the project **key** (short name) from
-`trackpilot projects`. Use `--field "Name=Value"` (repeatable) to set
-single-value enum custom fields **at creation time** — needed when a project
-makes a field mandatory.
+Create a task in one shot. `--project` is the project **key** (short name) from
+`trackpilot projects`.
+
+All values are validated **before** anything is written: an unknown tag, user, or
+field value fails fast with a "did you mean" suggestion, and no issue is created
+on bad input.
 
 ```bash
-trackpilot create \
-  --project ABC \
-  --summary "Fix login redirect loop" \
-  --description "Steps to reproduce ..." \
-  --type Bug \
-  --field "Squad=Squad 2"
+trackpilot create --project RC --summary "Release" --type Task \
+  --assignee "Javad Tavakoli" \
+  --field "RC Squad=Squad 2" --field "Team=Front-End" --field "Team=QA" \
+  --field "Estimation=1d" \
+  --tag scope:infra --tag unplanned \
+  --relates RC-211
 ```
 
-For multi-value fields, or fields set after creation, use `command` (below).
+Flag reference for `create`:
 
-### `update <id> [--summary ...] [--description ...] [--state ...]`
+- `--field "Name=Value"` — sets any custom field type; repeat the flag to set
+  multiple values on multi-value fields (e.g. two `--field "Team=..."` sets both).
+  Use `trackpilot fields <PROJECT>` to discover valid field names and allowed values.
+- `--assignee <user>` — matches a user by login, name, or full name.
+- `--tag <name>` (repeatable) — adds an existing tag; refuses to silently create a
+  new tag.
+- `--relates <ID>`, `--depends-on <ID>`, `--subtask-of <ID>` — each repeatable;
+  creates the corresponding link type.
 
-Update fields and/or move the issue to a new state. Pass at least one flag.
+### `update <id> [--summary ...] [--description ...] [--state ...] [--assignee <user>] [--field "Name=Value" ...] [--tag <name> ...] [--relates <ID>] [--depends-on <ID>] [--subtask-of <ID>]`
+
+Update an issue. Accepts the same `--assignee`, `--field`, `--tag`, and link flags
+as `create` (with the same validation-before-write semantics). Pass at least one
+flag.
 
 ```bash
 trackpilot update ABC-123 --state "In Progress"
 trackpilot update ABC-123 --summary "Clearer title" --description "Updated body"
+trackpilot update RC-123 --assignee "Javad Tavakoli" --field "Team=Front-End" --tag scope:infra
 ```
 
 ### `comment <id> --text "..."`
@@ -155,11 +169,20 @@ trackpilot update ABC-123 --summary "Clearer title" --description "Updated body"
 trackpilot comment ABC-123 --text "Deployed to staging, ready for QA."
 ```
 
+### `fields <PROJECT>`
+
+List all custom field names, their allowed values, and available tags for a
+project. Use this to discover what to pass to `--field` and `--tag`.
+
+```bash
+trackpilot fields RC
+```
+
 ### `command <id> --query "<yt-command>"`
 
 Apply an arbitrary [YouTrack command](https://www.jetbrains.com/help/youtrack/cloud/commands.html)
-to an issue — the escape hatch for any field `create`/`update` don't cover
-(multi-value fields, assignee, tags, etc.).
+to an issue — a low-level escape hatch for bulk actions or YouTrack command
+syntax not covered by the other flags.
 
 ```bash
 trackpilot command ABC-123 --query "Team Front-End"
