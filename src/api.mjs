@@ -237,6 +237,18 @@ export function createApi({ baseUrl, token, fetch: fetchFn } = {}) {
       return { id, comment: { author: c.author?.fullName || c.author?.login || null, text: c.text } };
     },
 
+    // General YouTrack time-tracking primitive. `date` is epoch millis.
+    async logWorkItem(id, { minutes, text, date } = {}) {
+      return request('POST', `/issues/${encodeURIComponent(id)}/timeTracking/workItems`, {
+        body: {
+          date,
+          duration: { minutes },
+          text: text ?? '',
+          usesMarkdown: false,
+        },
+      });
+    },
+
     async tags() {
       const data = await request('GET', '/issueTags', {
         query: { fields: 'name', $top: 1000 },

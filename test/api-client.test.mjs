@@ -32,3 +32,19 @@ test('me() returns { name, login } from /users/me', async () => {
   const me = await api.me();
   assert.deepEqual(me, { name: 'Javad Tavakoli', login: 'jt' });
 });
+
+test('logWorkItem posts a duration workItem to the issue', async () => {
+  const fetch = stubFetch(() => ({ body: { id: 'wi-1' } }));
+  const api = createApi({ baseUrl: 'https://x.youtrack.cloud', token: 't', fetch });
+  await api.logWorkItem('ABC-123', { minutes: 42, text: 'work', date: 1700000000000 });
+  const call = fetch.calls.at(-1);
+  assert.match(call.url, /\/api\/issues\/ABC-123\/timeTracking\/workItems$/);
+  assert.equal(call.init.method, 'POST');
+  const sent = JSON.parse(call.init.body);
+  assert.deepEqual(sent, {
+    date: 1700000000000,
+    duration: { minutes: 42 },
+    text: 'work',
+    usesMarkdown: false,
+  });
+});
