@@ -297,6 +297,11 @@ export function createApi({ baseUrl, token, fetch: fetchFn } = {}) {
       }
     },
 
+    // Low-level escape hatch: authenticated, fetch-injected YouTrack REST call.
+    // Lets consumers read shapes trackpilot doesn't model, without baking those
+    // shapes (or custom-field assumptions) into trackpilot.
+    request,
+
     webUrl,
   };
 }

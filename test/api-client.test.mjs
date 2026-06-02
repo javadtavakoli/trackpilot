@@ -48,3 +48,14 @@ test('logWorkItem posts a duration workItem to the issue', async () => {
     usesMarkdown: false,
   });
 });
+
+test('request escape hatch performs arbitrary authenticated GETs with query', async () => {
+  const fetch = stubFetch(() => ({ body: [{ id: '0-0', name: 'Board' }] }));
+  const api = createApi({ baseUrl: 'https://x.youtrack.cloud', token: 't', fetch });
+  const data = await api.request('GET', '/agiles', { query: { fields: 'name', $top: 50 } });
+  const call = fetch.calls.at(-1);
+  assert.match(call.url, /\/api\/agiles\?/);
+  assert.match(call.url, /fields=name/);
+  assert.match(call.url, /%24top=50|\$top=50/);
+  assert.deepEqual(data, [{ id: '0-0', name: 'Board' }]);
+});
