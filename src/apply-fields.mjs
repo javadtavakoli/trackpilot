@@ -36,7 +36,10 @@ export function resolveInputs({ raw = {}, schema = [], users = [], tags = [] }) 
   if (raw.assignee) {
     const opts = users.map((u) => ({ value: u.login, keys: [u.login, u.name, u.fullName].filter(Boolean) }));
     const r = resolveValue(raw.assignee, opts);
-    if (!r.match) throw new AppError(`unknown user "${raw.assignee}". Did you mean: ${r.suggestions.join(', ')}?`);
+    if (!r.match) {
+      const hint = r.suggestions.length ? ` Did you mean: ${r.suggestions.join(', ')}?` : '';
+      throw new AppError(`unknown user "${raw.assignee}".${hint}`);
+    }
     out.assignee = r.match;
   }
 
@@ -60,7 +63,10 @@ export function resolveInputs({ raw = {}, schema = [], users = [], tags = [] }) 
 
   for (const t of raw.tags || []) {
     const r = resolveValue(t, tags.map((name) => ({ value: name, keys: [name] })));
-    if (!r.match) throw new AppError(`unknown tag "${t}". Did you mean: ${r.suggestions.join(', ')}?`);
+    if (!r.match) {
+      const hint = r.suggestions.length ? ` Did you mean: ${r.suggestions.join(', ')}?` : '';
+      throw new AppError(`unknown tag "${t}".${hint}`);
+    }
     out.tags.push(r.match);
   }
 
@@ -70,13 +76,12 @@ export function resolveInputs({ raw = {}, schema = [], users = [], tags = [] }) 
 // Phase 1 (no issue id needed): fetch lookups, resolve/validate, build commands.
 // Throws AppError (with suggestions) on any bad value BEFORE anything is written.
 export async function prepareCommands(api, raw, projectKey) {
-  const needSchema = raw.fields && raw.fields.length;
+  const has = (arr) => Array.isArray(arr) && arr.length > 0;
+  const needSchema = has(raw.fields);
   const needUsers = !!raw.assignee;
-  const needTags = raw.tags && raw.tags.length;
+  const needTags = has(raw.tags);
   if (!needSchema && !needUsers && !needTags &&
-      !(raw.relates && raw.relates.length) &&
-      !(raw.dependsOn && raw.dependsOn.length) &&
-      !(raw.subtaskOf && raw.subtaskOf.length)) {
+      !has(raw.relates) && !has(raw.dependsOn) && !has(raw.subtaskOf)) {
     return [];
   }
 
