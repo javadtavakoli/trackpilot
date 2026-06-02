@@ -175,7 +175,7 @@ export function createApi({ baseUrl, token }) {
       return (data || []).map((i) => withUrl(shapeIssue(i)));
     },
 
-    async createIssue({ project, summary, description }) {
+    async createIssue({ project, summary, description, customFields = [] }) {
       const projectId = await this.resolveProjectId(project);
       const created = await request('POST', '/issues', {
         query: { fields: 'idReadable' },
@@ -183,9 +183,19 @@ export function createApi({ baseUrl, token }) {
           project: { id: projectId },
           summary,
           ...(description ? { description } : {}),
+          ...(customFields.length ? { customFields } : {}),
         },
       });
       return created.idReadable;
+    },
+
+    // Set typed custom fields on an existing issue via the REST POST body.
+    async setCustomFields(id, customFields) {
+      if (!customFields || !customFields.length) return;
+      await request('POST', `/issues/${encodeURIComponent(id)}`, {
+        query: { fields: 'idReadable' },
+        body: { customFields },
+      });
     },
 
     async updateIssue(id, { summary, description, state }) {
