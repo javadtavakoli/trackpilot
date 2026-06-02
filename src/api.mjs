@@ -128,6 +128,13 @@ export function createApi({ baseUrl, token, fetch: fetchFn } = {}) {
   // --- public API ------------------------------------------------------------
 
   return {
+    async me() {
+      const data = await request('GET', '/users/me', {
+        query: { fields: 'name,login' },
+      });
+      return { name: data?.name ?? null, login: data?.login ?? null };
+    },
+
     async projects() {
       const data = await request('GET', '/admin/projects', {
         query: { fields: 'id,shortName,name,archived', $top: 1000 },

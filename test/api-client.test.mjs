@@ -25,3 +25,10 @@ test('createApi uses the injected fetch (not global) and sends bearer auth', asy
   assert.match(fetch.calls[0].url, /^https:\/\/x\.youtrack\.cloud\/api\/users\/me/);
   assert.equal(fetch.calls[0].init.headers.Authorization, 'Bearer perm:abc');
 });
+
+test('me() returns { name, login } from /users/me', async () => {
+  const fetch = stubFetch(() => ({ body: { login: 'jt', name: 'Javad Tavakoli' } }));
+  const api = createApi({ baseUrl: 'https://x.youtrack.cloud', token: 't', fetch });
+  const me = await api.me();
+  assert.deepEqual(me, { name: 'Javad Tavakoli', login: 'jt' });
+});
