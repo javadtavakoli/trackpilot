@@ -1,42 +1,85 @@
-name: Publish to npm
+name: Release & publish to npm
 
-# Publishes to npm on every push to main, but ONLY when package.json's version
-# isn't already on the registry — so it publishes exactly when you bump the
-# version, and is a no-op for pushes that don't. Also runnable manually.
-# (No build step: the published files are plain .mjs.)
+# On every push to main: derive the next version from conventional-commit
+# subjects since the last tag (feat -> minor, fix/perf/revert -> patch,
+# !/BREAKING CHANGE -> major) via conventional-recommended-bump + semver, bump
+# package.json, regenerate CHANGELOG.md (conventional-changelog, angular preset),
+# tag, and push the release commit back. Then publish to npm if that version
+# isn't on the registry yet, and create the matching GitHub Release. Each step is
+# idempotent, so pushes with no releasable commits (and manual re-runs) are safe
+# no-ops. (No build step: the published files are plain .mjs.)
 on:
   push:
     branches: [main]
   workflow_dispatch:
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
-  publish:
+  release:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0       # full history so commits-since-tag works
+          fetch-tags: true     # need existing v* tags to find the range
 
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           registry-url: https://registry.npmjs.org
 
-      - name: Check whether this version is already published
-        id: check
+      - name: Enable Corepack (Yarn 4)
+        run: corepack enable
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Bump version, changelog & tag from commits
+        run: node scripts/release.mjs
+
+      - name: Resolve current version
+        id: pkg
         run: |
           NAME=$(node -p "require('./package.json').name")
           VERSION=$(node -p "require('./package.json').version")
-          echo "Resolved $NAME@$VERSION"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
-            echo "$NAME@$VERSION is already on npm — skipping publish."
-            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "Already on npm: $NAME@$VERSION"
+            echo "on_npm=true" >> "$GITHUB_OUTPUT"
           else
-            echo "publish=true" >> "$GITHUB_OUTPUT"
+            echo "on_npm=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Publish
-        if: steps.check.outputs.publish == 'true'
+      - name: Publish to npm
+        if: steps.pkg.outputs.on_npm == 'false'
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.pkg.outputs.version }}
+        run: |
+          TAG="v$VERSION"
+          git fetch --tags --force origin >/dev/null 2>&1 || true
+          if ! git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "Tag $TAG does not exist yet — skipping release."
+            exit 0
+          fi
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists — skipping."
+            exit 0
+          fi
+          yarn run conventional-changelog -p angular -r 1 > /tmp/notes.md
+          if [ -s /tmp/notes.md ]; then
+            gh release create "$TAG" --title "$TAG" --notes-file /tmp/notes.md
+          else
+            gh release create "$TAG" --title "$TAG" --generate-notes
+          fi

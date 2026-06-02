@@ -39,5 +39,11 @@
   "bugs": {
     "url": "https://github.com/javadtavakoli/trackpilot/issues"
   },
-  "homepage": "https://github.com/javadtavakoli/trackpilot#readme"
+  "homepage": "https://github.com/javadtavakoli/trackpilot#readme",
+  "packageManager": "yarn@4.14.1",
+  "devDependencies": {
+    "conventional-changelog-cli": "^5.0.0",
+    "conventional-recommended-bump": "^11.2.0",
+    "semver": "^7.8.1"
+  }
 }
