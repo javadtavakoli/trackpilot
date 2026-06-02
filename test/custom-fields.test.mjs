@@ -80,6 +80,13 @@ test('unknown field throws', () => {
   assert.throws(() => buildCustomFields([{ name: 'Nope', value: 'x' }], schema), /unknown field "Nope"/);
 });
 
+test('multi group -> [{ name }]', () => {
+  const groupSchema = [{ name: 'Groups', type: 'MultiGroupIssueCustomField', values: [] }];
+  assert.deepEqual(buildCustomFields([{ name: 'Groups', value: 'X' }], groupSchema), [
+    { name: 'Groups', $type: 'MultiGroupIssueCustomField', value: [{ name: 'X' }] },
+  ]);
+});
+
 test('empty input -> []', () => {
   assert.deepEqual(buildCustomFields([], schema), []);
 });

@@ -22,13 +22,13 @@ const ENUM_LIKE = new Set([
   'MultiVersionIssueCustomField',
   'MultiBuildIssueCustomField',
   'MultiOwnedIssueCustomField',
+  'MultiGroupIssueCustomField',
 ]);
 
 // Types whose per-value shape is { login }.
 const USER_LIKE = new Set([
   'SingleUserIssueCustomField',
   'MultiUserIssueCustomField',
-  'MultiGroupIssueCustomField',
 ]);
 
 // Shape a single raw value string for the given $type.

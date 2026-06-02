@@ -59,7 +59,7 @@ export function resolveInputs({ raw = {}, schema = [], users = [], tags = [] }) 
       }
       out.fields.push({ name: field.name, value: r.match });
     } else {
-      // period / text / user-typed fields pass through (assist validates format)
+      // period / text / simple / user-typed fields pass through unchanged; enum values are the only ones validated here
       out.fields.push({ name: field.name, value: f.value });
     }
   }

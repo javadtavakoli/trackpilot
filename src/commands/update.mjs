@@ -19,7 +19,10 @@ export async function run({ api, positionals, options }) {
 
   const raw = {
     assignee: typeof options.assignee === 'string' ? options.assignee : undefined,
-    fields: parseFields(options.field),
+    fields: [
+      ...parseFields(options.field),
+      ...(typeof options.type === 'string' ? [{ name: 'Type', value: options.type }] : []),
+    ],
     tags: asList(options.tag),
     relates: asList(options.relates),
     dependsOn: asList(options['depends-on']),

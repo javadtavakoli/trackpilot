@@ -169,3 +169,18 @@ test('applyPrepared applies commands after a clean assist, in order', async () =
   assert.deepEqual(api.calls[0].args, ['RC-1', 'Type Task']); // assist gets joined command string
   assert.deepEqual(api.calls[1].args, ['RC-1', commands]);
 });
+
+test('applyPrepared assists the joined string then applies all commands', async () => {
+  const api = mockApi({ assist: [
+    { description: 'Add tag unplanned', error: false },
+    { description: 'relates to RC-211', error: false },
+  ] });
+  const commands = [
+    { concern: 'tag:unplanned', command: 'add tag unplanned' },
+    { concern: 'link:relates:RC-211', command: 'relates to RC-211' },
+  ];
+  await applyPrepared(api, 'RC-1', commands);
+  assert.deepEqual(api.calls.map((c) => c.name), ['assist', 'applyCommands']);
+  assert.deepEqual(api.calls[0].args, ['RC-1', 'add tag unplanned relates to RC-211']);
+  assert.deepEqual(api.calls[1].args, ['RC-1', commands]);
+});

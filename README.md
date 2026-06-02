@@ -127,9 +127,10 @@ trackpilot list --query "for: me #Unresolved"
 Create a task in one shot. `--project` is the project **key** (short name) from
 `trackpilot projects`.
 
-All values are validated **before** anything is written: an unknown tag, user, or
-field value fails fast with a "did you mean" suggestion, and no issue is created
-on bad input.
+Field values, users, and tags are validated **client-side** before any write: an
+unknown tag, user, or field value fails fast with a "did you mean" suggestion and
+no issue is created. Link target IDs (`--relates`, `--depends-on`, `--subtask-of`)
+are validated by YouTrack's command engine after the issue is created.
 
 ```bash
 trackpilot create --project RC --summary "Release" --type Task \
@@ -151,7 +152,7 @@ Flag reference for `create`:
 - `--relates <ID>`, `--depends-on <ID>`, `--subtask-of <ID>` — each repeatable;
   creates the corresponding link type.
 
-### `update <id> [--summary ...] [--description ...] [--state ...] [--assignee <user>] [--field "Name=Value" ...] [--tag <name> ...] [--relates <ID>] [--depends-on <ID>] [--subtask-of <ID>]`
+### `update <id> [--summary ...] [--description ...] [--state ...] [--type <Type>] [--assignee <user>] [--field "Name=Value" ...] [--tag <name> ...] [--relates <ID>] [--depends-on <ID>] [--subtask-of <ID>]`
 
 Update an issue. Accepts the same `--assignee`, `--field`, `--tag`, and link flags
 as `create` (with the same validation-before-write semantics). Pass at least one
