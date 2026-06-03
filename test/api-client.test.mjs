@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createApi } from '../src/api.mjs';
+import { createApi, AppError } from '../src/api.mjs';
 
 // A stub fetch that records the last call and returns a canned JSON body.
 function stubFetch(responder) {
@@ -58,4 +58,10 @@ test('request escape hatch performs arbitrary authenticated GETs with query', as
   assert.match(call.url, /fields=name/);
   assert.match(call.url, /%24top=50|\$top=50/);
   assert.deepEqual(data, [{ id: '0-0', name: 'Board' }]);
+});
+
+test('request maps a non-2xx response to AppError', async () => {
+  const fetch = stubFetch(() => ({ status: 401, body: { error_description: 'bad token' } }));
+  const api = createApi({ baseUrl: 'https://x.youtrack.cloud', token: 'nope', fetch });
+  await assert.rejects(() => api.me(), AppError);
 });
