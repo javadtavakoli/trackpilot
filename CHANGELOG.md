@@ -1,3 +1,9 @@
+# [0.5.0](https://github.com/javadtavakoli/trackpilot/compare/v0.4.0...v0.5.0) (2026-06-03)
+
+
+### Features
+
+* **api:** accept a work-item type reference object in logWorkItem ([ff5e433](https://github.com/javadtavakoli/trackpilot/commit/ff5e43365a0c1c20efe58e497ca8f77991d0a9b6))
 # [0.4.0](https://github.com/javadtavakoli/trackpilot/compare/v0.3.0...v0.4.0) (2026-06-03)
 
 
