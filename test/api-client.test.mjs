@@ -65,3 +65,25 @@ test('request maps a non-2xx response to AppError', async () => {
   const api = createApi({ baseUrl: 'https://x.youtrack.cloud', token: 'nope', fetch });
   await assert.rejects(() => api.me(), AppError);
 });
+
+test('logWorkItem includes type:{name} when a type is given', async () => {
+  const fetch = stubFetch(() => ({ body: { id: 'wi-2' } }));
+  const api = createApi({ baseUrl: 'https://example.youtrack.cloud', token: 't', fetch });
+  await api.logWorkItem('ACME-1', { minutes: 30, text: 'x', date: 1700000000000, type: 'Development' });
+  const sent = JSON.parse(fetch.calls.at(-1).init.body);
+  assert.deepEqual(sent, {
+    date: 1700000000000,
+    duration: { minutes: 30 },
+    text: 'x',
+    usesMarkdown: false,
+    type: { name: 'Development' },
+  });
+});
+
+test('logWorkItem omits type when none is given', async () => {
+  const fetch = stubFetch(() => ({ body: { id: 'wi-3' } }));
+  const api = createApi({ baseUrl: 'https://example.youtrack.cloud', token: 't', fetch });
+  await api.logWorkItem('ACME-1', { minutes: 5, text: 'y', date: 1 });
+  const sent = JSON.parse(fetch.calls.at(-1).init.body);
+  assert.equal('type' in sent, false);
+});

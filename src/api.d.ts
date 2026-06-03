@@ -56,7 +56,7 @@ export interface TrackpilotApi {
   updateIssue(id: string, patch: { summary?: string; description?: string; state?: string }): Promise<ReadIssueResult>;
   applyCommand(id: string, query: string): Promise<void>;
   addComment(id: string, text: string): Promise<{ id: string; comment: { author: string | null; text: string } }>;
-  logWorkItem(id: string, item: { minutes: number; text?: string; date?: number }): Promise<any>;
+  logWorkItem(id: string, item: { minutes: number; text?: string; date?: number; type?: string }): Promise<any>;
   tags(): Promise<string[]>;
   users(): Promise<{ login: string; name: string; fullName: string }[]>;
   projectSchema(projectKey: string): Promise<{ name: string; type: string | null; values: string[] }[]>;

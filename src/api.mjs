@@ -238,13 +238,15 @@ export function createApi({ baseUrl, token, fetch: fetchFn } = {}) {
     },
 
     // General YouTrack time-tracking primitive. `date` is epoch millis.
-    async logWorkItem(id, { minutes, text, date } = {}) {
+    // `type` (optional) is a work-item type NAME defined by the instance.
+    async logWorkItem(id, { minutes, text, date, type } = {}) {
       return request('POST', `/issues/${encodeURIComponent(id)}/timeTracking/workItems`, {
         body: {
           date,
           duration: { minutes },
           text: text ?? '',
           usesMarkdown: false,
+          ...(type ? { type: { name: type } } : {}),
         },
       });
     },
