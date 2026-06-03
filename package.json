@@ -1,6 +1,6 @@
 {
   "name": "trackpilot",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "AI-friendly command-line copilot for driving YouTrack Cloud against a git repo: read specs, create and update issues, and generate release diffs for QA.",
   "type": "module",
   "bin": "bin/trackpilot.mjs",

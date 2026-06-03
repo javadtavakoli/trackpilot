@@ -1,3 +1,13 @@
+# [0.3.0](https://github.com/javadtavakoli/trackpilot/compare/v0.2.0...v0.3.0) (2026-06-03)
+
+
+### Features
+
+* **api:** add logWorkItem() time-tracking primitive ([623e417](https://github.com/javadtavakoli/trackpilot/commit/623e417805552caac97cdfd4460c5dbb9b3ccaef))
+* **api:** add me() to read the authenticated user ([0b13c73](https://github.com/javadtavakoli/trackpilot/commit/0b13c73cd5889638348e1c3b5c5a7924b719255d))
+* **api:** allow injecting a fetch implementation into createApi ([1644c98](https://github.com/javadtavakoli/trackpilot/commit/1644c980b7f71d914588185e5e5e0b67400d737b))
+* **api:** expose low-level request() escape hatch ([ac23abe](https://github.com/javadtavakoli/trackpilot/commit/ac23abeb07e4626e0a1c07577ae782f740c1dae9))
+* **api:** publish createApi as a typed library entry point ([6298810](https://github.com/javadtavakoli/trackpilot/commit/6298810e48b06136477b19852bcb44c6e2709676))
 # [0.2.0](https://github.com/javadtavakoli/trackpilot/compare/v0.1.0...v0.2.0) (2026-06-02)
 
 
