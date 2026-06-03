@@ -1,3 +1,9 @@
+# [0.4.0](https://github.com/javadtavakoli/trackpilot/compare/v0.3.0...v0.4.0) (2026-06-03)
+
+
+### Features
+
+* **api:** support optional work-item type on logWorkItem ([9a45ead](https://github.com/javadtavakoli/trackpilot/commit/9a45ead45339a3c06096e74de50a9132454a12b2))
 # [0.3.0](https://github.com/javadtavakoli/trackpilot/compare/v0.2.0...v0.3.0) (2026-06-03)
 
 
