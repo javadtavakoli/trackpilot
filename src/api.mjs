@@ -238,15 +238,18 @@ export function createApi({ baseUrl, token, fetch: fetchFn } = {}) {
     },
 
     // General YouTrack time-tracking primitive. `date` is epoch millis.
-    // `type` (optional) is a work-item type NAME defined by the instance.
+    // `type` may be a work-item type NAME (string) or a reference object such
+    // as `{ id }` — YouTrack requires the id to resolve a WorkItemType, so the
+    // object form is the reliable one; the string form is a convenience.
     async logWorkItem(id, { minutes, text, date, type } = {}) {
+      const typeRef = typeof type === 'string' ? { name: type } : type;
       return request('POST', `/issues/${encodeURIComponent(id)}/timeTracking/workItems`, {
         body: {
           date,
           duration: { minutes },
           text: text ?? '',
           usesMarkdown: false,
-          ...(type ? { type: { name: type } } : {}),
+          ...(typeRef ? { type: typeRef } : {}),
         },
       });
     },

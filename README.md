@@ -308,7 +308,7 @@ All methods return `Promise`s and throw `AppError` on network or HTTP failures.
 | `updateIssue` | `updateIssue(id, { summary?, description?, state? })` | Updates summary, description, and/or state. Returns the refreshed issue. State is applied via YouTrack's command API for reliable field transitions. |
 | `applyCommand` | `applyCommand(id, query)` | Applies a single [YouTrack command string](https://www.jetbrains.com/help/youtrack/cloud/commands.html) to an issue (e.g. `'State {In Progress}'`). |
 | `addComment` | `addComment(id, text)` | Adds a comment. Returns `{ id, comment: { author, text } }`. |
-| `logWorkItem` | `logWorkItem(id, { minutes, text?, date?, type? })` | Posts a work item. `date` is epoch milliseconds. `type` is the **name** of a work-item type configured in the YouTrack instance (e.g. `'Development'`, `'Testing'`); omit to post without a type. |
+| `logWorkItem` | `logWorkItem(id, { minutes, text?, date?, type? })` | Posts a work item. `date` is epoch milliseconds. `type` is the work-item type — a name string, or a reference object like `{ id }` (YouTrack requires the **id** to resolve a work-item type, so prefer `{ id }`); omit to post without a type. |
 | `tags` | `tags()` | Returns all tag names visible to the token. |
 | `users` | `users()` | Returns all users as `{ login, name, fullName }[]`. |
 | `projectSchema` | `projectSchema(projectKey)` | Returns the custom-field schema for a project as `{ name, type, values[] }[]`. Useful for discovering valid field names and allowed enum values without admin access. |

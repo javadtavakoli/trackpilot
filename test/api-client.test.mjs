@@ -87,3 +87,11 @@ test('logWorkItem omits type when none is given', async () => {
   const sent = JSON.parse(fetch.calls.at(-1).init.body);
   assert.equal('type' in sent, false);
 });
+
+test('logWorkItem passes a type reference object through as-is', async () => {
+  const fetch = stubFetch(() => ({ body: { id: 'wi-4' } }));
+  const api = createApi({ baseUrl: 'https://example.youtrack.cloud', token: 't', fetch });
+  await api.logWorkItem('ACME-1', { minutes: 15, text: 'z', date: 1, type: { id: '107-4' } });
+  const sent = JSON.parse(fetch.calls.at(-1).init.body);
+  assert.deepEqual(sent.type, { id: '107-4' });
+});
