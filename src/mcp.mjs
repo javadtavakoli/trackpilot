@@ -13,16 +13,16 @@ import { TOOLS } from './mcp-tools.mjs';
 const require = createRequire(import.meta.url);
 const { version } = require('../package.json');
 
-function asContent(result) {
-  return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] };
+export function asContent(result) {
+  const value = result === undefined ? { ok: true } : result;
+  return { content: [{ type: 'text', text: JSON.stringify(value, null, 2) }] };
 }
 
 export async function startMcpServer(options = {}) {
-  const baseUrl = await resolveBaseUrl(options['base-url']);
-  const { token } = await resolveToken();
-
   let api;
   try {
+    const baseUrl = await resolveBaseUrl(options['base-url']);
+    const { token } = await resolveToken();
     api = createApi({ baseUrl, token }); // throws AppError if baseUrl/token missing
   } catch (err) {
     process.stderr.write(`trackpilot mcp: ${err.message}\n`);
