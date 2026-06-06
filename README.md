@@ -353,6 +353,46 @@ const yt = createApi({
 
 ---
 
+## Use as an MCP server
+
+trackpilot can run as a local [Model Context Protocol](https://modelcontextprotocol.io)
+server over stdio, exposing your YouTrack instance to MCP clients like Claude.
+
+It uses the same auth as the CLI: set your instance URL and store a token first
+(`trackpilot config set --base-url https://your.youtrack.cloud` and
+`trackpilot config set-token`), or pass `YOUTRACK_BASE_URL` / `YOUTRACK_TOKEN`
+through the client config below.
+
+**Claude Code:**
+
+```bash
+claude mcp add trackpilot -- npx trackpilot mcp
+```
+
+**Claude Desktop** — add to `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "trackpilot": {
+      "command": "npx",
+      "args": ["trackpilot", "mcp"],
+      "env": {
+        "YOUTRACK_BASE_URL": "https://your.youtrack.cloud",
+        "YOUTRACK_TOKEN": "perm-xxxxxxxx"
+      }
+    }
+  }
+}
+```
+
+The server exposes read tools (`search`, `read_issue`, `list_projects`,
+`project_schema`, `list_users`, `list_tags`, `whoami`) and write tools
+(`create_issue`, `update_issue`, `add_comment`, `log_work`, `apply_command`).
+Your MCP client prompts for approval before each write.
+
+---
+
 ## Releasing (maintainers)
 
 Publishing is automated by `.github/workflows/publish.yml`: **every push to
