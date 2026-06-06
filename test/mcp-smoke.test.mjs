@@ -7,11 +7,11 @@ const BIN = fileURLToPath(new URL('../bin/trackpilot.mjs', import.meta.url));
 
 // Drive the server: spawn it, send newline-delimited JSON-RPC, collect stdout
 // lines, and resolve when a response with the given id arrives (or time out).
-function rpcSession() {
+function rpcSession({ baseUrl = 'https://stub.youtrack.cloud' } = {}) {
   const child = spawn(process.execPath, [BIN, 'mcp'], {
     env: {
       ...process.env,
-      YOUTRACK_BASE_URL: 'https://stub.youtrack.cloud',
+      YOUTRACK_BASE_URL: baseUrl,
       YOUTRACK_TOKEN: 'stub-token',
     },
     stdio: ['pipe', 'pipe', 'pipe'],
@@ -70,6 +70,42 @@ test('server lists all 12 tools via the JSON-RPC handshake', async () => {
     assert.ok(names.includes('search'));
     assert.ok(names.includes('create_issue'));
     assert.ok(names.includes('log_work'));
+  } finally {
+    child.kill();
+  }
+});
+
+test('a failing tool call returns an MCP error result, not a crash', async () => {
+  // Point at a port that refuses connections so the api's fetch fails fast and
+  // deterministically (no DNS, no real network). The tool handler should catch
+  // the error and return { isError: true }, and the server must stay alive.
+  const { child, send, waitFor } = rpcSession({ baseUrl: 'http://127.0.0.1:1' });
+  try {
+    send({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'initialize',
+      params: {
+        protocolVersion: '2024-11-05',
+        capabilities: {},
+        clientInfo: { name: 'smoke', version: '0' },
+      },
+    });
+    await waitFor(1);
+    send({ jsonrpc: '2.0', method: 'notifications/initialized' });
+
+    // whoami -> api.me() -> fetch to 127.0.0.1:1 -> connection refused -> AppError
+    send({
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'tools/call',
+      params: { name: 'whoami', arguments: {} },
+    });
+    const res = await waitFor(2);
+
+    assert.equal(res.result.isError, true);
+    assert.equal(typeof res.result.content[0].text, 'string');
+    assert.ok(res.result.content[0].text.length > 0);
   } finally {
     child.kill();
   }
