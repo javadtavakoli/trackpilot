@@ -52,6 +52,7 @@ Commands:
   command <id> --query "..."           Apply a YouTrack command (e.g. "State Fixed")
   fields <PROJECT>                     List a project's fields, allowed values, and tags
   release [--base main] [--head next]  Release diff: issues for QA from git history
+  mcp                                  Run an MCP server over stdio (for Claude)
 
 Global:
   --base-url <url>   Override the configured instance for one call
@@ -75,6 +76,20 @@ async function main() {
   if (!commandName || commandName === '--help' || commandName === 'help' || commandName === '-h') {
     process.stdout.write(USAGE + '\n');
     process.exit(commandName ? 0 : 1);
+  }
+
+  // `mcp` starts a long-lived stdio server -- it bypasses the one-shot
+  // print/exit flow below, so it is not in COMMANDS. Lazy-import keeps the
+  // MCP SDK off the path of every other command.
+  if (commandName === 'mcp') {
+    const { options } = parseArgs(argv.slice(1), { booleans: BOOLEAN_FLAGS });
+    if (options.help) {
+      process.stdout.write(USAGE + '\n');
+      process.exit(0);
+    }
+    const { startMcpServer } = await import('../src/mcp.mjs');
+    await startMcpServer(options);
+    return;
   }
 
   const entry = COMMANDS[commandName];
