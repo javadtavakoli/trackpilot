@@ -1,3 +1,17 @@
+# [0.6.0](https://github.com/javadtavakoli/trackpilot/compare/v0.5.0...v0.6.0) (2026-06-06)
+
+
+### Bug Fixes
+
+* **mcp:** coerce void tool results to valid string content; harden startup ([2874e26](https://github.com/javadtavakoli/trackpilot/commit/2874e260e8d54fe0f8540f4bc9ee82371dc32983))
+* **mcp:** route mcp subcommand errors to stderr, not stdout ([3601cb4](https://github.com/javadtavakoli/trackpilot/commit/3601cb42a6434cc5f5dd015dbef0f46a1363f906))
+
+
+### Features
+
+* **mcp:** add pure tool registry mapping MCP tools to the API ([3e3b938](https://github.com/javadtavakoli/trackpilot/commit/3e3b938c7ac69171f8ecc9eebcd30146337e45b8))
+* **mcp:** add stdio server wiring ([72e18d4](https://github.com/javadtavakoli/trackpilot/commit/72e18d4b7a171964a07ba8e6d0fea73c9c2b4017))
+* **mcp:** wire up the \`trackpilot mcp\` subcommand ([2f545fd](https://github.com/javadtavakoli/trackpilot/commit/2f545fdf762b024ea4c565eb7c3dd9bda673f29c))
 # [0.5.0](https://github.com/javadtavakoli/trackpilot/compare/v0.4.0...v0.5.0) (2026-06-03)
 
 
