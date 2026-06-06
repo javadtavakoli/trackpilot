@@ -87,8 +87,15 @@ async function main() {
       process.stdout.write(USAGE + '\n');
       process.exit(0);
     }
-    const { startMcpServer } = await import('../src/mcp.mjs');
-    await startMcpServer(options);
+    try {
+      const { startMcpServer } = await import('../src/mcp.mjs');
+      await startMcpServer(options);
+    } catch (err) {
+      // Route errors to stderr and exit -- do NOT fall through to fail(),
+      // which writes JSON to stdout and would corrupt the JSON-RPC stream.
+      process.stderr.write(`trackpilot mcp: ${err?.message || err}\n`);
+      process.exit(1);
+    }
     return;
   }
 
