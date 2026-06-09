@@ -27,14 +27,24 @@ Two further frictions compound this:
    field/assignee/type/tag/link inputs the CLI supports.
 2. Surface a `required` flag per field in `project_schema` output so an agent
    knows up front which fields must be set at creation.
-3. Reframe the README around the MCP server (MCP-first), keeping CLI and library
+3. **Full MCP parity with the CLI and library:** every meaningful capability the
+   CLI commands and library methods expose has a corresponding MCP tool. This adds
+   two missing tools — `release` (QA diff) and `preview_command` (dry-run via
+   `assist`) — see §5.
+4. Reframe the README around the MCP server (MCP-first), keeping CLI and library
    docs below it, with neutral/generic LLM usage examples.
-4. No behavior change to the CLI; existing tests stay green.
+5. No behavior change to the CLI; existing tests stay green.
 
 ## Non-goals
 
-- No new YouTrack capabilities beyond what the CLI already exposes.
+- No new YouTrack capabilities beyond what the CLI/library already expose.
 - No change to auth, config, or the keyring/library token model.
+- **Raw `request` passthrough is NOT exposed over MCP** (decision): it would give
+  the agent unrestricted access to any YouTrack endpoint. The MCP surface stays
+  typed and intentional. The library keeps `request` as its escape hatch.
+- **`config`/token management is NOT exposed over MCP** (decision): the MCP server
+  already authenticates via keyring/env; writing secrets through an MCP tool is an
+  unnecessary risk. Config remains a CLI-only setup concern.
 - No attempt to use the blocked admin custom-field endpoints; required-ness is
   derived from data already reachable via the schema-via-issue read.
 
@@ -176,8 +186,11 @@ must include a real call to verify.
   importable ESM library)."*
 - **Section order:** MCP server → Library → CLI (currently CLI → Library → MCP).
 - **Expanded MCP section:** install (`claude mcp add`, Claude Desktop JSON), auth,
-  and a full **tool reference** including the enriched `create_issue`/`update_issue`
-  params and the `required` flag in `project_schema`.
+  and a full **tool reference** for all 14 tools — including the enriched
+  `create_issue`/`update_issue` params, the `required` flag in `project_schema`,
+  and the new `release` and `preview_command` tools. The reference should make
+  clear the MCP surface has parity with the CLI/library (minus the intentionally
+  excluded raw `request` and `config`).
 - **LLM usage examples:** concrete agent loops using **generic placeholders only**
   — project `ABC`, generic field/user names. No reference to any private project,
   board, squad, ticket, or repository. Example flow: `whoami` → `project_schema ABC`
@@ -185,7 +198,64 @@ must include a real call to verify.
   set, a `type`, an `assignee`, and `tags`; plus a read → subtask → release loop.
 - CLI and Library sections retained below, trimmed of duplication.
 
-### 5. Testing (`node --test`)
+### 5. Full MCP parity — two new tools
+
+Audit of every CLI command and library method against the MCP surface:
+
+| Capability | CLI | Library | MCP today | Action |
+|---|---|---|---|---|
+| Search / read / projects | `list` `read` `projects` | `search` `readIssue` `projects` | ✓ | keep |
+| Schema + tags + users + whoami | `fields` | `projectSchema` `tags` `users` `me` | ✓ | keep (+`required`) |
+| Create / update / comment / log / command | `create` `update` `comment` `command` | `createIssue` `updateIssue`/`setCustomFields` `addComment` `logWorkItem` `applyCommand` | ✓ | enrich (§1–2) |
+| **Release diff for QA** | `release` | `commitMessages`/`release.mjs` | ❌ | **add `release` tool** |
+| **Dry-run a command** | — | `assist` | ❌ | **add `preview_command` tool** |
+| Raw authenticated REST | — | `request` | ❌ | **excluded** (see Non-goals) |
+| Config / token | `config` | `keyring.mjs` | ❌ | **excluded** (see Non-goals) |
+| `resolveProjectId`, `applyCommands`, `webUrl` | — | internal | — | not standalone tools (covered/embedded) |
+
+**`release` tool** — exposes the QA release-diff capability over MCP.
+
+```js
+{
+  name: 'release',
+  title: 'Release diff for QA',
+  description: 'Diff two git refs in the repo, extract YouTrack issue IDs from commit/branch names, and resolve them for QA.',
+  inputSchema: {
+    base: z.string().optional().describe('Base ref (default "main")'),
+    head: z.string().optional().describe('Head ref (default "next")'),
+    cwd: z.string().optional().describe('Repo directory to run git in; defaults to the server working directory'),
+  },
+  handler: (api, { base, head, cwd }) => releaseDiff(api, { base, head, cwd }),
+}
+```
+
+The release orchestration in `commands/release.mjs` is extracted to a shared
+`releaseDiff(api, { base, head, cwd })` (the CLI command becomes a thin adapter,
+mirroring §1). `git.mjs` `commitMessages(base, head, { cwd })` gains an optional
+`cwd` passed to `execFile` so the MCP tool can target a repo other than the
+server's launch directory; default is the process cwd (unchanged CLI behavior).
+
+**`preview_command` tool** — dry-runs a YouTrack command without mutating.
+
+```js
+{
+  name: 'preview_command',
+  title: 'Preview command (dry run)',
+  description: 'Dry-run a YouTrack command against an issue via /commands/assist. Returns the parsed commands and whether each would fail, without mutating.',
+  inputSchema: {
+    id: z.string().describe('Readable issue id, e.g. ABC-123'),
+    query: z.string().describe('YouTrack command, e.g. "State Fixed"'),
+  },
+  handler: (api, { id, query }) => api.assist(id, query),
+}
+```
+
+After this, the MCP server exposes: `search`, `read_issue`, `list_projects`,
+`project_schema`, `list_users`, `list_tags`, `whoami`, `create_issue`,
+`update_issue`, `add_comment`, `log_work`, `apply_command`, `preview_command`,
+`release`.
+
+### 6. Testing (`node --test`)
 
 - **`test/issue-ops.test.mjs` (new):** with a fake `api`, assert `createIssue`
   passes `customFields` to `api.createIssue` and runs `applyPrepared` commands;
@@ -197,10 +267,14 @@ must include a real call to verify.
 - **`test/shape.test.mjs` (extend) / schema test:** fixture issue with
   `projectCustomField.canBeEmpty: false` → `required: true`; missing/`true` →
   `required: false`.
+- **`release`/`preview_command` parity:** assert the `mcp-tools` registry includes
+  both new tools with the expected schemas; `release` handler delegates to the
+  shared `releaseDiff`, `preview_command` delegates to `api.assist`. Extend the
+  existing release test for the `commitMessages(..., { cwd })` parameter.
 - Existing CLI command tests continue to pass unchanged (adapters preserve
   behavior).
 
-### 6. Release / versioning
+### 7. Release / versioning
 
 New functionality → **minor** bump (0.6.0 → 0.7.0) via conventional commits
 (`feat:`). Publishing is automated by `.github/workflows/publish.yml` on push to
@@ -215,11 +289,15 @@ version is needed for the running MCP client to pick up the new tools.
 - `src/issue-ops.mjs` — `createIssue(api, args)`, `updateIssue(api, id, args)`.
   Depends on `apply-fields`. Pure orchestration over the `api` object; testable
   with a fake api.
-- `src/mcp-tools.mjs` — declarative tool registry; depends on `issue-ops`.
+- `src/mcp-tools.mjs` — declarative tool registry; depends on `issue-ops` and the
+  shared `releaseDiff`; adds `release` and `preview_command`.
 - `src/api.mjs` — `shapeSchema` gains `required`; `projectSchema` selector gains
   `canBeEmpty`.
-- `commands/create.mjs`, `commands/update.mjs` — thin CLI adapters over
-  `issue-ops`.
+- `releaseDiff(api, { base, head, cwd })` — extracted from `commands/release.mjs`;
+  shared by the CLI command and the MCP `release` tool. `git.mjs`
+  `commitMessages(base, head, { cwd })` gains an optional `cwd`.
+- `commands/create.mjs`, `commands/update.mjs`, `commands/release.mjs` — thin CLI
+  adapters over `issue-ops` / `releaseDiff`.
 
 ## Edge cases
 
