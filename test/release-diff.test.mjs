@@ -25,9 +25,22 @@ test('releaseDiff resolves known issues, separates unresolved and ignored tokens
   assert.deepEqual(out.issues.map((i) => i.id), ['ABC-1']);
   assert.deepEqual(out.unresolved, ['XYZ-9']);
   assert.ok(out.ignoredTokens.includes('UTF-8'));
+  assert.equal(out.commits, 2);
+  assert.equal(out.issueCount, 1);
+  assert.deepEqual(out.knownProjectKeys, ['ABC', 'XYZ']);
 });
 
 test('releaseDiff coerces non-string base/head to main/next defaults', async () => {
   const out = await releaseDiff(fakeApi(), { base: true, head: undefined }, fakeGit);
   assert.equal(out.range, 'main..next');
+});
+
+test('releaseDiff forwards cwd to git.commitMessages', async () => {
+  let capturedCwd;
+  const git = {
+    commitMessages: async (_b, _h, { cwd } = {}) => { capturedCwd = cwd; return []; },
+    extractIssueTokens: () => [],
+  };
+  await releaseDiff(fakeApi(), { base: 'main', head: 'next', cwd: '/some/path' }, git);
+  assert.equal(capturedCwd, '/some/path');
 });
