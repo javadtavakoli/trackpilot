@@ -1,11 +1,12 @@
 # trackpilot
 
-> AI-friendly **CLI** and importable **ESM library** for driving [YouTrack](https://www.jetbrains.com/youtrack/) Cloud.
+> An **MCP server** for [YouTrack](https://www.jetbrains.com/youtrack/) Cloud — also usable as a **CLI** and an importable **ESM library**.
 
-`trackpilot` lets you (or an AI assistant) drive YouTrack Cloud straight from a
-git repository or from your own code: read issue specs, create and update tasks,
-comment, search, log work, and generate a **release diff for QA** by extracting
-issue IDs from your git history.
+`trackpilot` lets an AI assistant (or you) drive YouTrack Cloud: read issue
+specs, create and update tasks with full custom-field support, comment, search,
+log work, dry-run commands, and generate a **release diff for QA** from git
+history. Use it three ways — as an MCP server for agents, as a terminal CLI, or
+as a library in your own code.
 
 ---
 
@@ -13,13 +14,110 @@ issue IDs from your git history.
 
 | Mode | How | Token storage |
 |---|---|---|
+| **MCP server** | `npx trackpilot mcp` (via an MCP client like Claude) | OS keyring or env vars |
 | **CLI** | `trackpilot <command>` in a terminal | OS keyring — never in a plaintext file |
 | **Library** | `import { createApi } from 'trackpilot'` | You pass it — no keyring dependency |
 
 Jump to the section you need:
 
+- [MCP server](#mcp-server) — expose YouTrack to an AI assistant
+- [Library (programmatic API)](#library-programmatic-api) — ESM import, typed
 - [CLI](#cli) — install globally, configure once, run commands
-- [Library (programmatic API)](#library-programmatic-api) — ESM import, typed, works in Node / browsers / Electron / Tauri
+
+---
+
+## MCP server
+
+trackpilot can run as a local [Model Context Protocol](https://modelcontextprotocol.io)
+server over stdio, exposing your YouTrack instance to MCP clients like Claude.
+
+It uses the same auth as the CLI: set your instance URL and store a token first
+(`trackpilot config set --base-url https://your.youtrack.cloud` and
+`trackpilot config set-token`), or pass `YOUTRACK_BASE_URL` / `YOUTRACK_TOKEN`
+through the client config below.
+
+**Claude Code:**
+
+```bash
+claude mcp add trackpilot -- npx trackpilot mcp
+```
+
+**Claude Desktop** — add to `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "trackpilot": {
+      "command": "npx",
+      "args": ["trackpilot", "mcp"],
+      "env": {
+        "YOUTRACK_BASE_URL": "https://your.youtrack.cloud",
+        "YOUTRACK_TOKEN": "perm-xxxxxxxx"
+      }
+    }
+  }
+}
+```
+
+### Tools
+
+The MCP surface has parity with the CLI and library (the only intentional
+omissions are the raw `request` escape hatch and `config`/token management,
+which stay CLI/library-only).
+
+| Tool | Purpose |
+|---|---|
+| `search` | Search issues with YouTrack query syntax. |
+| `read_issue` | Read one issue with comments, tags, links. |
+| `list_projects` | List projects and their keys. |
+| `project_schema` | List a project's custom fields, allowed values, and **which are required**. |
+| `list_users` / `list_tags` | List users / existing tags. |
+| `whoami` | The authenticated user. |
+| `create_issue` | Create an issue with `type`, `assignee`, `fields`, `tags`, and links. Returns the full issue. |
+| `update_issue` | Update summary/description/state plus `type`, `assignee`, `fields`, `tags`, links. |
+| `add_comment` | Add a comment. |
+| `log_work` | Log a work item. |
+| `apply_command` | Apply a YouTrack command. |
+| `preview_command` | Dry-run a command (no mutation). |
+| `release` | Release diff for QA from git history. |
+
+Custom fields are passed as an array of `{ name, value }` (repeat a name to set
+multiple values on a multi-value field). Call `project_schema` first to discover
+field names, allowed values, and required fields — **required fields must be set
+at creation time**, or YouTrack rejects the create.
+
+### Using it from an AI assistant
+
+A typical agent loop for filing a well-formed task:
+
+1. `whoami` → confirm the acting user.
+2. `project_schema` with `{ "project": "ABC" }` → discover fields and see which
+   are `"required": true` (e.g. a mandatory enum field).
+3. `create_issue`:
+
+   ```json
+   {
+     "project": "ABC",
+     "summary": "Login button misaligned on mobile",
+     "description": "Repro + screenshots…",
+     "type": "Bug",
+     "assignee": "jdoe",
+     "fields": [{ "name": "Priority", "value": "Major" }],
+     "tags": ["regression"]
+   }
+   ```
+
+   Any field reported as required by `project_schema` must be included here.
+
+A read → break-down → release loop:
+
+1. `read_issue` `ABC-100` → the assistant reads a spec issue.
+2. `create_issue` once per subtask, each with `subtaskOf: ["ABC-100"]`.
+3. At release time, `release` with `{ "base": "main", "head": "next" }` →
+   a QA-ready list of the issues going out.
+
+Before a risky transition, `preview_command` dry-runs it so the assistant can
+confirm it parses before `apply_command` actually applies it.
 
 ---
 
@@ -350,46 +448,6 @@ const yt = createApi({
   fetch: tauriFetch,
 });
 ```
-
----
-
-## Use as an MCP server
-
-trackpilot can run as a local [Model Context Protocol](https://modelcontextprotocol.io)
-server over stdio, exposing your YouTrack instance to MCP clients like Claude.
-
-It uses the same auth as the CLI: set your instance URL and store a token first
-(`trackpilot config set --base-url https://your.youtrack.cloud` and
-`trackpilot config set-token`), or pass `YOUTRACK_BASE_URL` / `YOUTRACK_TOKEN`
-through the client config below.
-
-**Claude Code:**
-
-```bash
-claude mcp add trackpilot -- npx trackpilot mcp
-```
-
-**Claude Desktop** — add to `claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "trackpilot": {
-      "command": "npx",
-      "args": ["trackpilot", "mcp"],
-      "env": {
-        "YOUTRACK_BASE_URL": "https://your.youtrack.cloud",
-        "YOUTRACK_TOKEN": "perm-xxxxxxxx"
-      }
-    }
-  }
-}
-```
-
-The server exposes read tools (`search`, `read_issue`, `list_projects`,
-`project_schema`, `list_users`, `list_tags`, `whoami`) and write tools
-(`create_issue`, `update_issue`, `add_comment`, `log_work`, `apply_command`).
-Your MCP client prompts for approval before each write.
 
 ---
 
