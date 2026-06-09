@@ -21,7 +21,7 @@ test('shapeSchema extracts field name, type, and bundle values', () => {
     ],
   };
   assert.deepEqual(shapeSchema(issue), [
-    { name: 'Type', type: 'SingleEnumIssueCustomField', values: ['Bug', 'Task', 'User Story'] },
-    { name: 'Estimation', type: 'PeriodIssueCustomField', values: [] },
+    { name: 'Type', type: 'SingleEnumIssueCustomField', required: false, values: ['Bug', 'Task', 'User Story'] },
+    { name: 'Estimation', type: 'PeriodIssueCustomField', required: false, values: [] },
   ]);
 });
