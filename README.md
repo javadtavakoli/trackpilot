@@ -121,6 +121,103 @@ confirm it parses before `apply_command` actually applies it.
 
 ---
 
+## Library (programmatic API)
+
+### Install
+
+```bash
+npm install trackpilot
+```
+
+Requires **Node 20+**. The library is pure ESM (no CommonJS build). It also runs
+in browsers, Electron renderer processes, and Tauri webviews — anywhere a standard
+`fetch` is available, or where you can inject one.
+
+### Construction
+
+```js
+import { createApi } from 'trackpilot';
+
+const yt = createApi({
+  baseUrl: 'https://example.youtrack.cloud',
+  token: process.env.YOUTRACK_TOKEN,
+});
+```
+
+**Unlike the CLI, the library does not touch the OS keyring.** You supply the
+token directly — store and retrieve it however your application manages secrets
+(environment variable, a host keychain API, Tauri's secure store, etc.).
+
+#### `createApi(options)` options
+
+| Option | Type | Required | Description |
+|---|---|---|---|
+| `baseUrl` | `string` | Yes | Root URL of your YouTrack Cloud instance, e.g. `https://example.youtrack.cloud`. No trailing slash. |
+| `token` | `string` | Yes | A permanent YouTrack API token (`perm:…` or `perm-…`). The library passes it as a `Bearer` header on every request. |
+| `fetch` | `FetchFn` | No | Custom fetch implementation. Defaults to `globalThis.fetch` (available in Node 18+, all modern browsers). Inject a host-provided fetch for environments where the global is unavailable or CORS-restricted — for example, Tauri's `fetch` from `@tauri-apps/plugin-http` bypasses WebKit's CORS restrictions and routes through the Rust backend. |
+
+### Method reference
+
+All methods return `Promise`s and throw `AppError` on network or HTTP failures.
+
+| Method | Signature | Description |
+|---|---|---|
+| `request` | `request(method, path, { query?, body? })` | Low-level escape hatch. Sends an authenticated request to any YouTrack REST endpoint. `query` is serialised into URL search params; `body` is JSON-encoded. Use this for any YouTrack endpoint not covered by a helper. |
+| `me` | `me()` | Returns `{ name, login }` for the token owner. Useful for verifying credentials. |
+| `projects` | `projects()` | Returns all projects as `{ id, shortName, name, archived }[]`. |
+| `resolveProjectId` | `resolveProjectId(shortName)` | Resolves a project short name (e.g. `'ACME'`) to its internal YouTrack `id`. Throws if not found. |
+| `readIssue` | `readIssue(id)` | Fetches a single issue by readable ID (e.g. `'ACME-1'`). Returns shaped fields + `comments` array. |
+| `search` | `search(query, limit?)` | Searches issues using [YouTrack query syntax](https://www.jetbrains.com/help/youtrack/cloud/search-and-command-attributes.html). `limit` defaults to 50. Returns shaped issue objects. |
+| `createIssue` | `createIssue({ project, summary, description?, customFields? })` | Creates an issue. `project` is the short name. Returns the new issue's readable ID. |
+| `setCustomFields` | `setCustomFields(id, customFields)` | Updates typed custom fields on an existing issue using the raw YouTrack REST `customFields` body format. |
+| `updateIssue` | `updateIssue(id, { summary?, description?, state? })` | Updates summary, description, and/or state. Returns the refreshed issue. State is applied via YouTrack's command API for reliable field transitions. |
+| `applyCommand` | `applyCommand(id, query)` | Applies a single [YouTrack command string](https://www.jetbrains.com/help/youtrack/cloud/commands.html) to an issue (e.g. `'State {In Progress}'`). |
+| `addComment` | `addComment(id, text)` | Adds a comment. Returns `{ id, comment: { author, text } }`. |
+| `logWorkItem` | `logWorkItem(id, { minutes, text?, date?, type? })` | Posts a work item. `date` is epoch milliseconds. `type` is the work-item type — a name string, or a reference object like `{ id }` (YouTrack requires the **id** to resolve a work-item type, so prefer `{ id }`); omit to post without a type. |
+| `tags` | `tags()` | Returns all tag names visible to the token. |
+| `users` | `users()` | Returns all users as `{ login, name, fullName }[]`. |
+| `projectSchema` | `projectSchema(projectKey)` | Returns the custom-field schema for a project as `{ name, type, values[] }[]`. Useful for discovering valid field names and allowed enum values without admin access. |
+| `assist` | `assist(idReadable, query)` | Dry-runs a command string against an issue via YouTrack's `/commands/assist` endpoint. Returns `{ description, error }[]` — the parsed commands and whether each would fail. No mutations are made. |
+| `applyCommands` | `applyCommands(idReadable, commands)` | Applies an array of `{ command }` objects sequentially using `applyCommand`, so a failure is attributable to a specific command. |
+| `webUrl` | `webUrl(idReadable)` | Returns the browser URL for an issue (synchronous). Example: `https://example.youtrack.cloud/issue/ACME-1`. |
+
+### Runnable example
+
+```js
+import { createApi } from 'trackpilot';
+
+const yt = createApi({
+  baseUrl: 'https://example.youtrack.cloud',
+  token: process.env.YOUTRACK_TOKEN,
+});
+
+const me = await yt.me();                       // { name, login }
+const issues = await yt.search('for: me #Unresolved', 20);
+await yt.logWorkItem('ACME-1', { minutes: 30, text: 'Pairing', date: Date.now(), type: 'Development' });
+await yt.applyCommand('ACME-1', 'State {In Progress}');
+
+// escape hatch for anything not wrapped:
+const boards = await yt.request('GET', '/agiles', { query: { fields: 'name', $top: 50 } });
+```
+
+### Tauri / WebKit webview example
+
+In a Tauri app the global `fetch` is subject to WebKit's CORS policy. Inject
+Tauri's plugin fetch so requests route through the Rust backend:
+
+```js
+import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
+import { createApi } from 'trackpilot';
+
+const yt = createApi({
+  baseUrl: 'https://example.youtrack.cloud',
+  token: mySecretStore.getToken(),
+  fetch: tauriFetch,
+});
+```
+
+---
+
 ## CLI
 
 ### Install
@@ -251,8 +348,8 @@ are validated by YouTrack's command engine after the issue is created.
 
 ```bash
 trackpilot create --project ABC --summary "Release" --type Task \
-  --assignee "Javad Tavakoli" \
-  --field "Squad=Squad 2" --field "Team=Front-End" --field "Team=QA" \
+  --assignee "jdoe" \
+  --field "Priority=Major" --field "Team=Front-End" --field "Team=QA" \
   --field "Estimation=1d" \
   --tag scope:infra --tag unplanned \
   --relates ABC-211
@@ -278,7 +375,7 @@ flag.
 ```bash
 trackpilot update ABC-123 --state "In Progress"
 trackpilot update ABC-123 --summary "Clearer title" --description "Updated body"
-trackpilot update ABC-123 --assignee "Javad Tavakoli" --field "Team=Front-End" --tag scope:infra
+trackpilot update ABC-123 --assignee "jdoe" --field "Team=Front-End" --tag scope:infra
 ```
 
 #### `comment <id> --text "..."`
@@ -351,103 +448,6 @@ A typical loop:
 1. `trackpilot read ABC-1` → the assistant reads a spec issue.
 2. The assistant drafts subtasks and runs `trackpilot create --project ABC --summary ... --description ...` for each.
 3. At release time, `trackpilot release` produces the QA list to paste into a ticket or message.
-
----
-
-## Library (programmatic API)
-
-### Install
-
-```bash
-npm install trackpilot
-```
-
-Requires **Node 20+**. The library is pure ESM (no CommonJS build). It also runs
-in browsers, Electron renderer processes, and Tauri webviews — anywhere a standard
-`fetch` is available, or where you can inject one.
-
-### Construction
-
-```js
-import { createApi } from 'trackpilot';
-
-const yt = createApi({
-  baseUrl: 'https://example.youtrack.cloud',
-  token: process.env.YOUTRACK_TOKEN,
-});
-```
-
-**Unlike the CLI, the library does not touch the OS keyring.** You supply the
-token directly — store and retrieve it however your application manages secrets
-(environment variable, a host keychain API, Tauri's secure store, etc.).
-
-#### `createApi(options)` options
-
-| Option | Type | Required | Description |
-|---|---|---|---|
-| `baseUrl` | `string` | Yes | Root URL of your YouTrack Cloud instance, e.g. `https://example.youtrack.cloud`. No trailing slash. |
-| `token` | `string` | Yes | A permanent YouTrack API token (`perm:…` or `perm-…`). The library passes it as a `Bearer` header on every request. |
-| `fetch` | `FetchFn` | No | Custom fetch implementation. Defaults to `globalThis.fetch` (available in Node 18+, all modern browsers). Inject a host-provided fetch for environments where the global is unavailable or CORS-restricted — for example, Tauri's `fetch` from `@tauri-apps/plugin-http` bypasses WebKit's CORS restrictions and routes through the Rust backend. |
-
-### Method reference
-
-All methods return `Promise`s and throw `AppError` on network or HTTP failures.
-
-| Method | Signature | Description |
-|---|---|---|
-| `request` | `request(method, path, { query?, body? })` | Low-level escape hatch. Sends an authenticated request to any YouTrack REST endpoint. `query` is serialised into URL search params; `body` is JSON-encoded. Use this for any YouTrack endpoint not covered by a helper. |
-| `me` | `me()` | Returns `{ name, login }` for the token owner. Useful for verifying credentials. |
-| `projects` | `projects()` | Returns all projects as `{ id, shortName, name, archived }[]`. |
-| `resolveProjectId` | `resolveProjectId(shortName)` | Resolves a project short name (e.g. `'ACME'`) to its internal YouTrack `id`. Throws if not found. |
-| `readIssue` | `readIssue(id)` | Fetches a single issue by readable ID (e.g. `'ACME-1'`). Returns shaped fields + `comments` array. |
-| `search` | `search(query, limit?)` | Searches issues using [YouTrack query syntax](https://www.jetbrains.com/help/youtrack/cloud/search-and-command-attributes.html). `limit` defaults to 50. Returns shaped issue objects. |
-| `createIssue` | `createIssue({ project, summary, description?, customFields? })` | Creates an issue. `project` is the short name. Returns the new issue's readable ID. |
-| `setCustomFields` | `setCustomFields(id, customFields)` | Updates typed custom fields on an existing issue using the raw YouTrack REST `customFields` body format. |
-| `updateIssue` | `updateIssue(id, { summary?, description?, state? })` | Updates summary, description, and/or state. Returns the refreshed issue. State is applied via YouTrack's command API for reliable field transitions. |
-| `applyCommand` | `applyCommand(id, query)` | Applies a single [YouTrack command string](https://www.jetbrains.com/help/youtrack/cloud/commands.html) to an issue (e.g. `'State {In Progress}'`). |
-| `addComment` | `addComment(id, text)` | Adds a comment. Returns `{ id, comment: { author, text } }`. |
-| `logWorkItem` | `logWorkItem(id, { minutes, text?, date?, type? })` | Posts a work item. `date` is epoch milliseconds. `type` is the work-item type — a name string, or a reference object like `{ id }` (YouTrack requires the **id** to resolve a work-item type, so prefer `{ id }`); omit to post without a type. |
-| `tags` | `tags()` | Returns all tag names visible to the token. |
-| `users` | `users()` | Returns all users as `{ login, name, fullName }[]`. |
-| `projectSchema` | `projectSchema(projectKey)` | Returns the custom-field schema for a project as `{ name, type, values[] }[]`. Useful for discovering valid field names and allowed enum values without admin access. |
-| `assist` | `assist(idReadable, query)` | Dry-runs a command string against an issue via YouTrack's `/commands/assist` endpoint. Returns `{ description, error }[]` — the parsed commands and whether each would fail. No mutations are made. |
-| `applyCommands` | `applyCommands(idReadable, commands)` | Applies an array of `{ command }` objects sequentially using `applyCommand`, so a failure is attributable to a specific command. |
-| `webUrl` | `webUrl(idReadable)` | Returns the browser URL for an issue (synchronous). Example: `https://example.youtrack.cloud/issue/ACME-1`. |
-
-### Runnable example
-
-```js
-import { createApi } from 'trackpilot';
-
-const yt = createApi({
-  baseUrl: 'https://example.youtrack.cloud',
-  token: process.env.YOUTRACK_TOKEN,
-});
-
-const me = await yt.me();                       // { name, login }
-const issues = await yt.search('for: me #Unresolved', 20);
-await yt.logWorkItem('ACME-1', { minutes: 30, text: 'Pairing', date: Date.now(), type: 'Development' });
-await yt.applyCommand('ACME-1', 'State {In Progress}');
-
-// escape hatch for anything not wrapped:
-const boards = await yt.request('GET', '/agiles', { query: { fields: 'name', $top: 50 } });
-```
-
-### Tauri / WebKit webview example
-
-In a Tauri app the global `fetch` is subject to WebKit's CORS policy. Inject
-Tauri's plugin fetch so requests route through the Rust backend:
-
-```js
-import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
-import { createApi } from 'trackpilot';
-
-const yt = createApi({
-  baseUrl: 'https://example.youtrack.cloud',
-  token: mySecretStore.getToken(),
-  fetch: tauriFetch,
-});
-```
 
 ---
 
