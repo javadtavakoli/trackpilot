@@ -1,3 +1,9 @@
+## [0.8.1](https://github.com/javadtavakoli/trackpilot/compare/v0.8.0...v0.8.1) (2026-06-09)
+
+
+### Bug Fixes
+
+* point package homepage to the docs site (fullhouse.click/trackpilot) ([f92051d](https://github.com/javadtavakoli/trackpilot/commit/f92051d5353e4290f6b451bb5d87899d621768f4))
 # [0.8.0](https://github.com/javadtavakoli/trackpilot/compare/v0.6.0...v0.8.0) (2026-06-09)
 
 
