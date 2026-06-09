@@ -61,7 +61,7 @@ export const TOOLS = [
   {
     name: 'create_issue',
     title: 'Create issue',
-    description: 'Create an issue. Returns the full created issue. Call project_schema first to see field names, allowed values, and which fields are required.',
+    description: 'Create an issue. Returns the full created issue. Call project_schema first to see field names, allowed values, and which fields are required. Initial state is set by the project workflow; use update_issue to change state after creation.',
     inputSchema: {
       project: z.string().describe('Project short key, e.g. ABC'),
       summary: z.string().describe('Issue summary / title'),
@@ -85,19 +85,19 @@ export const TOOLS = [
     description: "Update an issue's summary, description, state, type, assignee, custom fields, tags, and links. Returns the full updated issue.",
     inputSchema: {
       id: z.string().describe('Readable issue id, e.g. ABC-123'),
-      summary: z.string().optional(),
-      description: z.string().optional(),
+      summary: z.string().optional().describe('Issue summary / title'),
+      description: z.string().optional().describe('Markdown description'),
       state: z.string().optional().describe('New state, e.g. "In Progress"'),
       type: z.string().optional().describe('Issue type, e.g. "Task", "Bug"'),
       assignee: z.string().optional().describe('User login, name, or full name'),
       fields: z.array(z.object({
         name: z.string().describe('Custom field name, e.g. "Priority"'),
-        value: z.string().describe('A single value; repeat the field name for multi-value fields'),
+        value: z.string().describe('A single value; repeat the field name to set multiple values on a multi-value field'),
       })).optional().describe('Custom fields to set'),
       tags: z.array(z.string()).optional().describe('Existing tag names to add'),
       relates: z.array(z.string()).optional().describe('Issue IDs to link as "relates to"'),
       dependsOn: z.array(z.string()).optional().describe('Issue IDs this issue depends on'),
-      subtaskOf: z.array(z.string()).optional().describe('Parent issue IDs'),
+      subtaskOf: z.array(z.string()).optional().describe('Parent issue IDs (this becomes a subtask)'),
     },
     handler: (api, { id, ...rest }) => updateIssue(api, id, rest),
   },
