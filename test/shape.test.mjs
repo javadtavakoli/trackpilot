@@ -1,7 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { shapeIssue, shapeLinks } from '../src/api.mjs';
-import { shapeSchema } from '../src/api.mjs';
+import { shapeIssue, shapeLinks, shapeSchema } from '../src/api.mjs';
 
 test('shapeLinks keeps only non-empty buckets, flattens to {type,direction,id}', () => {
   const raw = [
@@ -21,6 +20,7 @@ test('shapeSchema marks required when projectCustomField.canBeEmpty is false', (
       { name: 'Squad', $type: 'SingleEnumIssueCustomField', projectCustomField: { canBeEmpty: false, bundle: { values: [{ name: 'A' }, { name: 'B' }] } } },
       { name: 'Priority', $type: 'SingleEnumIssueCustomField', projectCustomField: { canBeEmpty: true, bundle: { values: [{ name: 'Normal' }] } } },
       { name: 'Note', $type: 'TextIssueCustomField', projectCustomField: {} },
+      { name: 'Orphan', $type: 'SimpleIssueCustomField' },
     ],
   };
   const schema = shapeSchema(issue);
@@ -28,6 +28,7 @@ test('shapeSchema marks required when projectCustomField.canBeEmpty is false', (
     { name: 'Squad', type: 'SingleEnumIssueCustomField', required: true, values: ['A', 'B'] },
     { name: 'Priority', type: 'SingleEnumIssueCustomField', required: false, values: ['Normal'] },
     { name: 'Note', type: 'TextIssueCustomField', required: false, values: [] },
+    { name: 'Orphan', type: 'SimpleIssueCustomField', required: false, values: [] },
   ]);
 });
 
