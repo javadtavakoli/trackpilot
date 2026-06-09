@@ -72,16 +72,32 @@ test('whoami calls api.me()', async () => {
   assert.deepEqual(calls.at(-1), { method: 'me', args: [] });
 });
 
-test('create_issue passes a {project, summary, description} object', async () => {
-  const { api, calls } = fakeApi();
-  await tool('create_issue').handler(api, { project: 'ABC', summary: 'S', description: 'D' });
-  assert.deepEqual(calls.at(-1), { method: 'createIssue', args: [{ project: 'ABC', summary: 'S', description: 'D' }] });
+test('create_issue routes through issue-ops: createIssue then readIssue', async () => {
+  const { api, calls } = fakeApi({ createIssue: 'ABC-1', readIssue: { id: 'ABC-1' } });
+  const out = await tool('create_issue').handler(api, { project: 'ABC', summary: 'S', description: 'D' });
+  assert.deepEqual(calls[0], { method: 'createIssue', args: [{ project: 'ABC', summary: 'S', description: 'D', customFields: [] }] });
+  assert.deepEqual(calls.at(-1), { method: 'readIssue', args: ['ABC-1'] });
+  assert.deepEqual(out, { id: 'ABC-1' });
 });
 
-test('update_issue passes id and a patch object', async () => {
-  const { api, calls } = fakeApi();
+test('create_issue forwards custom fields through to api.createIssue', async () => {
+  const { api, calls } = fakeApi({
+    projectSchema: [{ name: 'Priority', type: 'SingleEnumIssueCustomField', values: ['Normal', 'Major'] }],
+    createIssue: 'ABC-3',
+    readIssue: { id: 'ABC-3' },
+  });
+  await tool('create_issue').handler(api, { project: 'ABC', summary: 'S', fields: [{ name: 'Priority', value: 'Major' }] });
+  const create = calls.find((c) => c.method === 'createIssue');
+  assert.deepEqual(create.args[0].customFields, [
+    { name: 'Priority', $type: 'SingleEnumIssueCustomField', value: { name: 'Major' } },
+  ]);
+});
+
+test('update_issue routes through issue-ops: updateIssue patch then readIssue', async () => {
+  const { api, calls } = fakeApi({ readIssue: { id: 'ABC-1' } });
   await tool('update_issue').handler(api, { id: 'ABC-1', state: 'Fixed' });
-  assert.deepEqual(calls.at(-1), { method: 'updateIssue', args: ['ABC-1', { summary: undefined, description: undefined, state: 'Fixed' }] });
+  assert.deepEqual(calls[0], { method: 'updateIssue', args: ['ABC-1', { state: 'Fixed' }] });
+  assert.equal(calls.at(-1).method, 'readIssue');
 });
 
 test('add_comment calls api.addComment(id, text)', async () => {
