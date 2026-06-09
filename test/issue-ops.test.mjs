@@ -63,3 +63,13 @@ test('updateIssue with field work calls prepareCreate and setCustomFields with t
     { name: 'Priority', $type: 'SingleEnumIssueCustomField', value: { name: 'Major' } },
   ]]);
 });
+
+test('createIssue forwards an explicit empty-string type to field validation (not silently dropped)', async () => {
+  const { api } = fakeApi({
+    projectSchema: [{ name: 'Type', type: 'SingleEnumIssueCustomField', values: ['Task', 'Bug'] }],
+  });
+  await assert.rejects(
+    () => createIssue(api, { project: 'ABC', summary: 'S', type: '' }),
+    (e) => e instanceof AppError,
+  );
+});

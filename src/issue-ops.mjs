@@ -10,7 +10,7 @@ import { prepareCreate, applyPrepared } from './apply-fields.mjs';
 function toRaw({ type, assignee, fields = [], tags = [], relates = [], dependsOn = [], subtaskOf = [] } = {}) {
   return {
     assignee,
-    fields: [...fields, ...(type ? [{ name: 'Type', value: type }] : [])],
+    fields: [...fields, ...(type !== undefined ? [{ name: 'Type', value: type }] : [])],
     tags,
     relates,
     dependsOn,
