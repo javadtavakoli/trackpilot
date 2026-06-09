@@ -47,7 +47,7 @@
   "bugs": {
     "url": "https://github.com/javadtavakoli/trackpilot/issues"
   },
-  "homepage": "https://github.com/javadtavakoli/trackpilot#readme",
+  "homepage": "https://www.fullhouse.click/trackpilot",
   "packageManager": "yarn@4.14.1",
   "devDependencies": {
     "conventional-changelog-cli": "^5.0.0",
