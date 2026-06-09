@@ -50,3 +50,16 @@ test('updateIssue with no actionable input throws', async () => {
   const { api } = fakeApi();
   await assert.rejects(() => updateIssue(api, 'ABC-1', {}), (e) => e instanceof AppError && /nothing to update/.test(e.message));
 });
+
+test('updateIssue with field work calls prepareCreate and setCustomFields with the resolved payload', async () => {
+  const { api, calls } = fakeApi({
+    projectSchema: [{ name: 'Priority', type: 'SingleEnumIssueCustomField', values: ['Major', 'Minor'] }],
+    readIssue: { id: 'ABC-1' },
+  });
+  await updateIssue(api, 'ABC-1', { fields: [{ name: 'Priority', value: 'Major' }] });
+  const setCall = calls.find((c) => c.method === 'setCustomFields');
+  assert.ok(setCall, 'setCustomFields should be called');
+  assert.deepEqual(setCall.args, ['ABC-1', [
+    { name: 'Priority', $type: 'SingleEnumIssueCustomField', value: { name: 'Major' } },
+  ]]);
+});
