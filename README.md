@@ -88,7 +88,17 @@ at creation time**, or YouTrack rejects the create.
 
 ### Using it from an AI assistant
 
-A typical agent loop for filing a well-formed task:
+Once the MCP server is connected, you can drive YouTrack with plain language.
+Example prompts:
+
+- "What are my unresolved issues in ABC?"
+- "File a bug in ABC: the login button is unresponsive on Safari. Set Priority to Major, assign it to jdoe, and tag it regression."
+- "Read ABC-100, break it into subtasks, and create each one as a subtask of ABC-100."
+- "Move ABC-123 to In Progress and add a comment that I've started."
+- "Before you set ABC-5 to Fixed, dry-run the command to confirm it's valid."
+- "Generate the QA release list for main..next."
+
+Under the hood, a typical agent loop for filing a well-formed task:
 
 1. `whoami` → confirm the acting user.
 2. `project_schema` with `{ "project": "ABC" }` → discover fields and see which
