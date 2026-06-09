@@ -1,3 +1,18 @@
+# [0.8.0](https://github.com/javadtavakoli/trackpilot/compare/v0.6.0...v0.8.0) (2026-06-09)
+
+
+### Bug Fixes
+
+* declare required field in api.d.ts and tighten shapeSchema test ([864faf0](https://github.com/javadtavakoli/trackpilot/commit/864faf04200362c01ada6ac81d1da2efe279db20))
+* preserve explicit empty-string type instead of silently dropping it ([8e42981](https://github.com/javadtavakoli/trackpilot/commit/8e42981ef01f14270971fbc9860b208a8328c4b1))
+
+
+### Features
+
+* extract shared issue-ops create/update orchestration ([f511bbd](https://github.com/javadtavakoli/trackpilot/commit/f511bbdf15ac8e1223c2fe4f331c8a534ad1767d))
+* **mcp:** add release and preview_command tools for full CLI/library parity ([8dfc260](https://github.com/javadtavakoli/trackpilot/commit/8dfc260ea924cd7e3508b5a0490611f0e909197d))
+* **mcp:** enrich create_issue/update_issue with fields, type, assignee, tags, links ([0b038ae](https://github.com/javadtavakoli/trackpilot/commit/0b038ae6778026e21ab3f17bc0b13156dbb674c5))
+* surface required custom fields in project_schema ([0ede667](https://github.com/javadtavakoli/trackpilot/commit/0ede6672c48e4e5fbe9a04895cd6da4d6778ce2f))
 # [0.6.0](https://github.com/javadtavakoli/trackpilot/compare/v0.5.0...v0.6.0) (2026-06-06)
 
 
