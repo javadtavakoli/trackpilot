@@ -3,7 +3,7 @@
 //   [--tag <name> ...] [--relates <ID> ...] [--depends-on <ID> ...] [--subtask-of <ID> ...]
 
 import { AppError } from '../api.mjs';
-import { prepareCreate, applyPrepared } from '../apply-fields.mjs';
+import { createIssue } from '../issue-ops.mjs';
 
 // "Name=Value" (repeatable) -> [{ name, value }]
 export function parseFields(raw) {
@@ -30,27 +30,16 @@ export async function run({ api, options }) {
   if (!project || project === true) throw new AppError('--project <KEY> is required');
   if (!summary || summary === true) throw new AppError('--summary "<text>" is required');
 
-  const raw = {
+  return createIssue(api, {
+    project,
+    summary,
+    description: typeof options.description === 'string' ? options.description : undefined,
+    type: typeof options.type === 'string' ? options.type : undefined,
     assignee: typeof options.assignee === 'string' ? options.assignee : undefined,
-    fields: [
-      ...parseFields(options.field),
-      ...(typeof options.type === 'string' ? [{ name: 'Type', value: options.type }] : []),
-    ],
+    fields: parseFields(options.field),
     tags: asList(options.tag),
     relates: asList(options.relates),
     dependsOn: asList(options['depends-on']),
     subtaskOf: asList(options['subtask-of']),
-  };
-
-  const { customFields, commands } = await prepareCreate(api, raw, project);
-
-  const id = await api.createIssue({
-    project,
-    summary,
-    description: typeof options.description === 'string' ? options.description : undefined,
-    customFields,
   });
-
-  await applyPrepared(api, id, commands);
-  return api.readIssue(id);
 }
