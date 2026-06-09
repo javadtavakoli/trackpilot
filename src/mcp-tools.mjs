@@ -4,6 +4,7 @@
 
 import { z } from 'zod';
 import { createIssue, updateIssue } from './issue-ops.mjs';
+import { releaseDiff } from './release-diff.mjs';
 
 export const TOOLS = [
   {
@@ -134,5 +135,26 @@ export const TOOLS = [
       query: z.string().describe('YouTrack command, e.g. "State Fixed"'),
     },
     handler: (api, { id, query }) => api.applyCommand(id, query),
+  },
+  {
+    name: 'preview_command',
+    title: 'Preview command (dry run)',
+    description: 'Dry-run a YouTrack command against an issue via /commands/assist. Returns the parsed commands and whether each would fail, without mutating anything.',
+    inputSchema: {
+      id: z.string().describe('Readable issue id, e.g. ABC-123'),
+      query: z.string().describe('YouTrack command, e.g. "State Fixed"'),
+    },
+    handler: (api, { id, query }) => api.assist(id, query),
+  },
+  {
+    name: 'release',
+    title: 'Release diff for QA',
+    description: 'Diff two git refs in a repo, extract YouTrack issue IDs from commit/branch names, and resolve them into a QA-ready list.',
+    inputSchema: {
+      base: z.string().optional().describe('Base ref (default "main")'),
+      head: z.string().optional().describe('Head ref (default "next")'),
+      cwd: z.string().optional().describe('Repo directory to run git in; defaults to the server working directory'),
+    },
+    handler: (api, { base, head, cwd }) => releaseDiff(api, { base, head, cwd }),
   },
 ];
