@@ -39,6 +39,7 @@ export function shapeSchema(issue) {
   return (issue.customFields || []).map((cf) => ({
     name: cf.name,
     type: cf.$type ?? null,
+    required: cf.projectCustomField?.canBeEmpty === false, // undefined -> false; never over-claim
     values: (cf.projectCustomField?.bundle?.values || []).map((v) => v.name).filter(Boolean),
   }));
 }
@@ -277,7 +278,7 @@ export function createApi({ baseUrl, token, fetch: fetchFn } = {}) {
           query: `project: ${projectKey}`,
           $top: 1,
           fields:
-            'customFields(name,$type,projectCustomField(field(name),bundle(values(name))))',
+            'customFields(name,$type,projectCustomField(canBeEmpty,field(name),bundle(values(name))))',
         },
       });
       if (!list || !list.length) {

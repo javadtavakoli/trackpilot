@@ -12,12 +12,13 @@ const NUL = String.fromCharCode(0);
 // LETTERS-NUMBER, e.g. ABC-1, APP-42. Prefix must start with a letter.
 const TOKEN_RE = /\b([a-z][a-z0-9]*)-(\d+)\b/gi;
 
-export async function commitMessages(base, head) {
+export async function commitMessages(base, head, { cwd } = {}) {
   let out;
   try {
     // %x00 emits a NUL byte after each commit body so multi-line bodies stay intact.
     out = await run('git', ['log', `${base}..${head}`, '--format=%B%x00'], {
       maxBuffer: 64 * 1024 * 1024,
+      ...(cwd ? { cwd } : {}),
     });
   } catch (err) {
     const msg = (err.stderr || err.message || '').trim();

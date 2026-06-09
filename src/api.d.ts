@@ -59,7 +59,7 @@ export interface TrackpilotApi {
   logWorkItem(id: string, item: { minutes: number; text?: string; date?: number; type?: string | { id?: string; name?: string } }): Promise<any>;
   tags(): Promise<string[]>;
   users(): Promise<{ login: string; name: string; fullName: string }[]>;
-  projectSchema(projectKey: string): Promise<{ name: string; type: string | null; values: string[] }[]>;
+  projectSchema(projectKey: string): Promise<{ name: string; type: string | null; required: boolean; values: string[] }[]>;
   assist(idReadable: string, query: string): Promise<{ description: string; error: boolean }[]>;
   applyCommands(idReadable: string, commands: { command: string }[]): Promise<void>;
   webUrl(idReadable: string): string;
@@ -68,6 +68,6 @@ export interface TrackpilotApi {
 export function createApi(options: CreateApiOptions): TrackpilotApi;
 export function shapeIssue(issue: any): ShapedIssue;
 export function shapeLinks(links: any[]): { type: string | null; direction: string | null; id: string | null }[];
-export function shapeSchema(issue: any): { name: string; type: string | null; values: string[] }[];
+export function shapeSchema(issue: any): { name: string; type: string | null; required: boolean; values: string[] }[];
 export function fieldValue(cf: any): string | null;
 export function renderOne(v: any): string | null;

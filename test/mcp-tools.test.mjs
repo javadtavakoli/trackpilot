@@ -23,12 +23,13 @@ function tool(name) {
   return t;
 }
 
-test('exposes exactly the 12 expected tools', () => {
+test('exposes exactly the 14 expected tools', () => {
   const names = TOOLS.map((t) => t.name).sort();
   assert.deepEqual(names, [
     'add_comment', 'apply_command', 'create_issue', 'list_projects',
-    'list_tags', 'list_users', 'log_work', 'project_schema',
-    'read_issue', 'search', 'update_issue', 'whoami',
+    'list_tags', 'list_users', 'log_work', 'preview_command',
+    'project_schema', 'read_issue', 'release', 'search',
+    'update_issue', 'whoami',
   ]);
 });
 
@@ -72,16 +73,32 @@ test('whoami calls api.me()', async () => {
   assert.deepEqual(calls.at(-1), { method: 'me', args: [] });
 });
 
-test('create_issue passes a {project, summary, description} object', async () => {
-  const { api, calls } = fakeApi();
-  await tool('create_issue').handler(api, { project: 'ABC', summary: 'S', description: 'D' });
-  assert.deepEqual(calls.at(-1), { method: 'createIssue', args: [{ project: 'ABC', summary: 'S', description: 'D' }] });
+test('create_issue routes through issue-ops: createIssue then readIssue', async () => {
+  const { api, calls } = fakeApi({ createIssue: 'ABC-1', readIssue: { id: 'ABC-1' } });
+  const out = await tool('create_issue').handler(api, { project: 'ABC', summary: 'S', description: 'D' });
+  assert.deepEqual(calls[0], { method: 'createIssue', args: [{ project: 'ABC', summary: 'S', description: 'D', customFields: [] }] });
+  assert.deepEqual(calls.at(-1), { method: 'readIssue', args: ['ABC-1'] });
+  assert.deepEqual(out, { id: 'ABC-1' });
 });
 
-test('update_issue passes id and a patch object', async () => {
-  const { api, calls } = fakeApi();
+test('create_issue forwards custom fields through to api.createIssue', async () => {
+  const { api, calls } = fakeApi({
+    projectSchema: [{ name: 'Priority', type: 'SingleEnumIssueCustomField', values: ['Normal', 'Major'] }],
+    createIssue: 'ABC-3',
+    readIssue: { id: 'ABC-3' },
+  });
+  await tool('create_issue').handler(api, { project: 'ABC', summary: 'S', fields: [{ name: 'Priority', value: 'Major' }] });
+  const create = calls.find((c) => c.method === 'createIssue');
+  assert.deepEqual(create.args[0].customFields, [
+    { name: 'Priority', $type: 'SingleEnumIssueCustomField', value: { name: 'Major' } },
+  ]);
+});
+
+test('update_issue routes through issue-ops: updateIssue patch then readIssue', async () => {
+  const { api, calls } = fakeApi({ readIssue: { id: 'ABC-1' } });
   await tool('update_issue').handler(api, { id: 'ABC-1', state: 'Fixed' });
-  assert.deepEqual(calls.at(-1), { method: 'updateIssue', args: ['ABC-1', { summary: undefined, description: undefined, state: 'Fixed' }] });
+  assert.deepEqual(calls[0], { method: 'updateIssue', args: ['ABC-1', { state: 'Fixed' }] });
+  assert.equal(calls.at(-1).method, 'readIssue');
 });
 
 test('add_comment calls api.addComment(id, text)', async () => {
@@ -108,4 +125,17 @@ test('list_tags and list_users call tags() and users()', async () => {
   assert.deepEqual(calls.at(-1), { method: 'tags', args: [] });
   await tool('list_users').handler(api, {});
   assert.deepEqual(calls.at(-1), { method: 'users', args: [] });
+});
+
+test('preview_command calls api.assist(id, query)', async () => {
+  const { api, calls } = fakeApi({ assist: [{ description: 'State Fixed', error: false }] });
+  const out = await tool('preview_command').handler(api, { id: 'ABC-1', query: 'State Fixed' });
+  assert.deepEqual(calls.at(-1), { method: 'assist', args: ['ABC-1', 'State Fixed'] });
+  assert.deepEqual(out, [{ description: 'State Fixed', error: false }]);
+});
+
+test('release tool exists, is wired, and exposes base/cwd/head inputs', async () => {
+  const t = tool('release');
+  assert.equal(typeof t.handler, 'function');
+  assert.deepEqual(Object.keys(t.inputSchema).sort(), ['base', 'cwd', 'head']);
 });

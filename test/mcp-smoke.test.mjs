@@ -46,7 +46,7 @@ function rpcSession({ baseUrl = 'https://stub.youtrack.cloud' } = {}) {
   return { child, send, waitFor };
 }
 
-test('server lists all 12 tools via the JSON-RPC handshake', async () => {
+test('server lists all 14 tools via the JSON-RPC handshake', async () => {
   const { child, send, waitFor } = rpcSession();
   try {
     send({
@@ -66,7 +66,7 @@ test('server lists all 12 tools via the JSON-RPC handshake', async () => {
     const res = await waitFor(2);
 
     const names = res.result.tools.map((t) => t.name).sort();
-    assert.equal(names.length, 12);
+    assert.equal(names.length, 14);
     assert.ok(names.includes('search'));
     assert.ok(names.includes('create_issue'));
     assert.ok(names.includes('log_work'));
