@@ -129,7 +129,7 @@ export const TOOLS = [
   {
     name: 'apply_command',
     title: 'Apply command',
-    description: 'Apply a YouTrack command to an issue, e.g. "State Fixed" or "add tag urgent".',
+    description: 'Apply a YouTrack command to an issue, e.g. "State Fixed" or "add tag urgent". Use preview_command first to validate a command without mutating anything.',
     inputSchema: {
       id: z.string().describe('Readable issue id, e.g. ABC-123'),
       query: z.string().describe('YouTrack command, e.g. "State Fixed"'),
@@ -139,7 +139,7 @@ export const TOOLS = [
   {
     name: 'preview_command',
     title: 'Preview command (dry run)',
-    description: 'Dry-run a YouTrack command against an issue via /commands/assist. Returns the parsed commands and whether each would fail, without mutating anything.',
+    description: 'Dry-run a YouTrack command against an issue (the no-mutation counterpart to apply_command). Returns the parsed commands and whether each would fail, without changing anything.',
     inputSchema: {
       id: z.string().describe('Readable issue id, e.g. ABC-123'),
       query: z.string().describe('YouTrack command, e.g. "State Fixed"'),
@@ -153,7 +153,7 @@ export const TOOLS = [
     inputSchema: {
       base: z.string().optional().describe('Base ref (default "main")'),
       head: z.string().optional().describe('Head ref (default "next")'),
-      cwd: z.string().optional().describe('Repo directory to run git in; defaults to the server working directory'),
+      cwd: z.string().optional().describe("Repo directory to run git in. Defaults to the MCP server's working directory — pass an explicit absolute path unless the server was launched from the target repo."),
     },
     handler: (api, { base, head, cwd }) => releaseDiff(api, { base, head, cwd }),
   },
